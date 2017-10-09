@@ -14,9 +14,11 @@ let gitdir = Filename.concat sandbox "opamstate"
 let opamroot = Filename.concat gitdir "dotopam"
 let repo = Filename.concat sandbox "opam-repository"
 let failure_file = Filename.concat gitdir "opamcheck-fail"
+let log_file = Filename.concat gitdir "opamcheck-log"
 let opam_env =
   sprintf "PATH='%s' OPAMFETCH='%s' OPAMROOT='%s' \
-           OPAMCOLOR=never OPAMUTF8=never OPAMUTF8MSGS=false "
+           OPAMCOLOR=never OPAMUTF8=never OPAMUTF8MSGS=false \
+           OPAMVERBOSE=1 "
     path fetch opamroot
 let tmp_opam_out = Filename.concat tmp "opam_out"
 
@@ -132,6 +134,11 @@ let restore l =
   end else
     false
 
+let print_command_to_log cmd =
+  let oc = open_out_gen [Open_creat; Open_append; Open_text] 0o666 log_file in
+  fprintf oc "\n================\n$ %s\n\n" cmd;
+  close_out oc
+
 let play_solution rl =
   let total = List.length rl in
   let rec find_start l acc =
@@ -168,12 +175,14 @@ let play_solution rl =
           );
           let cmd =
             if pack = "compiler" then
-              sprintf "switch %s" vers
+              sprintf "opam switch %s" vers
             else
-              sprintf "install -v %s" packvers
+              sprintf "opam install %s" packvers
           in
           let packs_done = ((pack, vers) :: acc) in
-          if run ~env:opam_env (sprintf "opam %s" cmd) <> 0 then begin
+          print_command_to_log cmd;
+          let rc = run ~env:opam_env (sprintf "%s >> %s" cmd log_file) in
+          if rc <> 0 then begin
             Status.show_result '#';
             write_failure packs_done;
           end else begin
@@ -218,7 +227,7 @@ let ask_opam comp name vers =
   | true -> ()
   end;
   let cmd =
-    sprintf "%s opam install -y --dry-run %s.%s >%s"
+    sprintf "%s OPAMVERBOSE=0 opam install -y --dry-run %s.%s >%s"
       opam_env name vers tmp_opam_out
   in
   begin match Sys.command cmd with

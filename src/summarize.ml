@@ -15,12 +15,9 @@ let summary_dir = Filename.concat Util.sandbox "summary"
 let data_dir = Filename.concat summary_dir "data"
 let index_file = Filename.concat summary_dir "index.html"
 let state_dir = Filename.concat Util.sandbox "opamstate"
+let mystate_dir = Filename.concat Util.sandbox "opamstate.tmp"
 let tmp_dir = Filename.concat Util.sandbox "tmp"
-let out_files comp pack vers =
-  let dir = List.fold_left Filename.concat state_dir
-              ["dotopam"; comp; "build"; sprintf "%s.%s" pack vers]
-  in
-  Filename.concat (Filename.quote dir) (sprintf "%s-*.out" pack)
+let log_file = Filename.concat mystate_dir "opamcheck-log"
 
 let command ?(ignore_errors=false) s =
   match Sys.command s with
@@ -152,26 +149,13 @@ let print_detail_list oc packvers l =
 let print_detail_line oc pack vers line =
   let packvers = sprintf "%s.%s" pack vers in
   match String.split_on_char ' ' line with
-  | "fail" :: tag :: "[" :: (pv :: _ as l)
-    when pv = packvers ->
-     let (comp, _, _) = parse_list l in
-     let comp =
-       match Version.split_name_version comp with
-       | (_, Some v) -> v
-       | _ -> assert false
-     in
-     let cmd =
-       sprintf "git -C %s archive --format=tar %s:dotopam/%s/build/%s.%s \
-                    '%s*.out' | tar -C %s -x"
-         (Filename.quote state_dir) tag comp pack vers pack
-         (Filename.quote tmp_dir)
-     in
-     command ~ignore_errors:true cmd;
+  | "fail" :: tag :: "[" :: (pv :: _ as l) when pv = packvers ->
      let f = sprintf "%s.%s-%s.txt" pack vers tag in
      let absf = Filename.quote (Filename.concat data_dir f) in
-     let cmd = sprintf "cat %s/*.out >%s" (Filename.quote tmp_dir) absf in
-     command ~ignore_errors:true cmd;
-     let cmd = sprintf "rm -rf %s/*.out" (Filename.quote tmp_dir) in
+     let cmd =
+       sprintf "git -C %s show %s:opamcheck-log > %s"
+               (Filename.quote mystate_dir) tag absf
+     in
      command ~ignore_errors:true cmd;
      fprintf oc "<a href=\"%s\" class=\"keyfail\">fail</a> %s<br>[" f tag;
      print_detail_list oc packvers l;
@@ -318,8 +302,8 @@ let main () =
   command cmd;
   let cmd = sprintf "mkdir -p %s" (Filename.quote tmp_dir) in
   command cmd;
-  command (sprintf "rm -rf %s.tmp" state_dir);
-  command (sprintf "git clone %s %s.tmp" state_dir state_dir);
+  command (sprintf "rm -rf %s" mystate_dir);
+  command (sprintf "git clone %s %s" state_dir mystate_dir);
   let index = open_out index_file in
   fprintf index "%s" html_header;
   List.iter (print_result_line index) groups;
