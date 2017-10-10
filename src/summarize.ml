@@ -7,6 +7,7 @@ open Printf
 
 open Util
 
+let verbose = ref false
 let show_all = ref false
 let version = ref ""
 
@@ -20,6 +21,10 @@ let tmp_dir = Filename.concat Util.sandbox "tmp"
 let log_file = Filename.concat mystate_dir "opamcheck-log"
 
 let command ?(ignore_errors=false) s =
+  if !verbose then begin
+    eprintf "+ %s\n" s;
+    flush stderr;
+  end;
   match Sys.command s with
   | 0 -> ()
   | n ->
@@ -153,7 +158,7 @@ let print_detail_line oc pack vers line =
      let f = sprintf "%s.%s-%s.txt" pack vers tag in
      let absf = Filename.quote (Filename.concat data_dir f) in
      let cmd =
-       sprintf "git -C %s show %s:opamcheck-log > %s"
+       sprintf "git -C %s show remotes/origin/%s:opamcheck-log > %s"
                (Filename.quote mystate_dir) tag absf
      in
      command ~ignore_errors:true cmd;
@@ -239,6 +244,7 @@ let print_result_line oc l =
 
 let spec = Arg.[
   "-all", Set show_all, " Show all results";
+  "-v", Set verbose, " Activate verbose mode";
 ]
 
 let anon v =
