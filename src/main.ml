@@ -276,6 +276,12 @@ let main () =
   Log.log "reading packages files\n";
   let asts = fold_opam_files f [] repo in
   let u = Package.make !compilers asts in
+
+  let oc = open_out (Filename.concat sandbox "weights") in
+  let p_deps p d = fprintf oc "%d %s\n" (SS.cardinal d) p in
+  SM.iter p_deps u.Package.revdeps;
+  close_out oc;
+
   let excludes = read_lines (Filename.concat sandbox "exclude") in
   List.iter (register_exclusion u) excludes;
   let p = {
@@ -289,7 +295,11 @@ let main () =
   let cmp p1 p2 =
     Package.(
       let c = Pervasives.compare p1.name p2.name in
-      if c = 0 then Version.compare p2.version p1.version else c
+      if c = 0 then Version.compare p2.version p1.version else begin
+        let w1 = SS.cardinal (SM.find p1.name u.Package.revdeps) in
+        let w2 = SS.cardinal (SM.find p2.name u.Package.revdeps) in
+        if w1 = w2 then c else w2 - w1
+      end
     )
   in
   let packs = List.sort cmp u.Package.packs in

@@ -17,6 +17,7 @@ type u = {
   packs : t list;
   pack_map : t list Util.SM.t;
   lits : (string * Minisat.Lit.t) list Util.SM.t;
+  revdeps : Util.SS.t Util.SM.t;
 }
 (** A universe of packages. *)
 

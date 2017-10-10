@@ -20,6 +20,7 @@ type u = {
   packs : t list;
   pack_map : t list Util.SM.t;
   lits : (string * Minisat.Lit.t) list Util.SM.t;
+  revdeps : Util.SS.t Util.SM.t;
 }
 
 let find_lit u name vers = List.assoc vers (SM.find name u.lits)
@@ -168,6 +169,14 @@ let rec union l1 l2 =
   | [] -> l2
   | h :: t -> if List.mem h l2 then union t l2 else union t (h :: l2)
 
+let rec formula_fold_left f acc fo =
+  match fo with
+  | Ast.And (fo1, fo2)
+  | Ast.Or (fo1, fo2) -> formula_fold_left f (formula_fold_left f acc fo1) fo2
+  | Ast.List fl -> List.fold_left (formula_fold_left f) acc fl
+  | Ast.Not (fo1) -> formula_fold_left f acc fo1
+  | Ast.Atom a -> f acc a
+
 let make ocaml_versions asts =
   let add_version vars (dir, ast) =
     try
@@ -185,7 +194,7 @@ let make ocaml_versions asts =
   let cmp v1 v2 = Version.compare v2 v1 in
   let lits = SM.map (fun vs -> List.map f (List.sort cmp vs)) vars in
   let sat = Minisat.create () in
-  let u = { sat; packs = []; pack_map = SM.empty; lits } in
+  let u = { sat; packs = []; pack_map = SM.empty; lits; revdeps = SM.empty } in
   let conflict name v1 v2 =
     let l1 = find_lit u name v1 in
     let l2 = find_lit u name v2 in
@@ -232,7 +241,18 @@ let make ocaml_versions asts =
     SM.add pack.name (pack :: versions) map
   in
   let pack_map = List.fold_left f SM.empty packs in
-  { sat; packs; pack_map; lits }
+  let add_dep pack map dep =
+    let rd = try SM.find dep map with Not_found -> SS.empty in
+    SM.add dep (SS.add pack.name rd) map
+  in
+  let f map pack =
+    let d = try SM.find pack.name map with Not_found -> SS.empty in
+    let map = SM.add pack.name d map in
+    let map = List.fold_left (add_dep pack) map pack.dep_opt in
+    formula_fold_left (fun m (d, _) -> add_dep pack m d) map pack.deps
+  in
+  let revdeps = List.fold_left f SM.empty packs in
+  { sat; packs; pack_map; lits; revdeps }
 
 let show p =
   printf "pack = %s.%s\n" p.name p.version;

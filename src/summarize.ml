@@ -12,6 +12,7 @@ let show_all = ref false
 let version = ref ""
 
 let results_file = Filename.concat Util.sandbox "results"
+let weights_file = Filename.concat Util.sandbox "weights"
 let summary_dir = Filename.concat Util.sandbox "summary"
 let data_dir = Filename.concat summary_dir "data"
 let index_file = Filename.concat summary_dir "index.html"
@@ -299,11 +300,30 @@ let read_results () =
   close_in ic;
   res
 
+let read_weights () =
+  let ic = Scanf.Scanning.from_channel (open_in weights_file) in
+  let rec loop m =
+    match Scanf.bscanf ic "%d %s " (fun w p -> SM.add p w m) with
+    | m2 -> loop m2
+    | exception End_of_file -> m
+  in
+  loop SM.empty
+
 let main () =
   Arg.parse spec anon usage;
   if !version = "" then (Arg.usage spec usage; exit 2);
+  let weigths = read_weights () in
   let results = SM.bindings (read_results ()) in
   let groups = group_packs results [] in
+  let get_weight group =
+    match group with
+    | (pv, _) :: _ ->
+      let p, _ = Version.split_name_version pv in
+      SM.find p weigths
+    | [] -> assert false
+  in
+  let cmp g1 g2 = compare (get_weight g2) (get_weight g1) in
+  let groups = List.sort cmp groups in
   let cmd = sprintf "mkdir -p %s" (Filename.concat summary_dir "data") in
   command cmd;
   let cmd = sprintf "mkdir -p %s" (Filename.quote tmp_dir) in
