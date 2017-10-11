@@ -1,0 +1,15 @@
+#!/bin/sh
+
+case $"OPCSANDBOX" in
+  "") echo 'OPCSANDBOX is undefined' >&2
+      exit 2
+      ;;
+esac
+
+printf "<p>opamcheck launched on %s UTC<br>" "$(date -u +"%F %T")" \
+  > $OPCSANDBOX/launch-info
+printf "with arguments: %s</p>" "$*" >>$OPCSANDBOX/launch-info
+opamcheck "$@"
+rm -rf $OPCSANDBOX/summary
+while [ $# -gt 1 ]; do shift; done
+summarize -head "$(<$OPCSANDBOX/launch-info)" "$1"

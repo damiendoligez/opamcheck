@@ -9,6 +9,7 @@ open Util
 
 let verbose = ref false
 let show_all = ref false
+let header = ref ""
 let version = ref ""
 
 let results_file = Filename.concat Util.sandbox "results"
@@ -246,6 +247,7 @@ let print_result_line oc l =
 let spec = Arg.[
   "-all", Set show_all, " Show all results";
   "-v", Set verbose, " Activate verbose mode";
+  "-head", Set_string header, "<s> Insert <s> at top of body in index file";
 ]
 
 let anon v =
@@ -288,11 +290,10 @@ th { text-align: right; }\n\
 td { text-align: center; }\n\
 </style>\n\
 </head>\n\
-<body>\n\
-<table>\n\
 "
 
-let html_footer = "</table></body></html>\n"
+let html_body_start = ("<body>\n%s<table>\n" : _ format)
+let html_body_end = "</table></body></html>\n"
 
 let read_results () =
   let ic = open_in results_file in
@@ -332,7 +333,8 @@ let main () =
   command (sprintf "git clone %s %s" state_dir mystate_dir);
   let index = open_out index_file in
   fprintf index "%s" html_header;
+  fprintf index html_body_start !header;
   List.iter (print_result_line index) groups;
-  fprintf index "%s" html_footer
+  fprintf index "%s" html_body_end;
 
 ;; main ()
