@@ -6,7 +6,7 @@ case $"OPCSANDBOX" in
       ;;
 esac
 
-printf "<p>opamcheck launched on %s UTC<br>" "$(date -u +"%F %T")" \
+printf "<p>opamcheck launched on %s<br>" "$(date -u +"%F %T UTC")" \
   > $OPCSANDBOX/launch-info
 printf "with arguments: %s</p>" "$*" >>$OPCSANDBOX/launch-info
 opamcheck "$@"

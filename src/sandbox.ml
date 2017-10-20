@@ -181,7 +181,7 @@ let play_solution rl =
           in
           let packs_done = ((pack, vers) :: acc) in
           print_command_to_log cmd;
-          let rc = run ~env:opam_env (sprintf "%s >> %s" cmd log_file) in
+          let rc = run ~env:opam_env (sprintf "%s > %s" cmd log_file) in
           if rc <> 0 then begin
             Status.show_result '#';
             write_failure packs_done;
