@@ -57,9 +57,13 @@ let rec encode dir =
     Unix.(match (lstat xx).st_kind with
     | S_REG | S_LNK -> ()
     | S_DIR -> encode xx
+    | exception Unix_error _ -> ()
     | _ -> ()
     );
-    if x.[0] = '.' then Sys.rename xx (Filename.concat dir ("." ^ x));
+    if x.[0] = '.' then begin
+      try Sys.rename xx (Filename.concat dir ("." ^ x))
+      with Unix.Unix_error _ -> ()
+    end;
   in
   let entries = Sys.readdir dir in
   Array.sort encode_compare entries;
@@ -78,11 +82,13 @@ let rec decode dir =
       Unix.(match (lstat xx).st_kind with
       | S_REG | S_LNK -> ()
       | S_DIR -> decode xx
+      | exception Unix_error _ -> ()
       | _ -> ()
       );
       if x.[0] = '.' then begin
         let newname = String.sub x 1 (String.length x - 1) in
-        Sys.rename xx (Filename.concat dir newname)
+        try Sys.rename xx (Filename.concat dir newname)
+        with Unix.Unix_error _ -> ()
       end
     end
   in
