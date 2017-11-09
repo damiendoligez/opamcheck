@@ -21,5 +21,5 @@ val get_tag : (string * string) list -> string * string
 val ask_opam : string -> string -> string -> (string * string) list
 (** [ask_opam comp name vers]
     Call [opam] to get a solution for installing the package on the
-    given compiler. Return the empty list of opam fails to find a solution.
+    given compiler. Return the empty list if opam fails to find a solution.
 *)

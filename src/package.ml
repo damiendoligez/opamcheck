@@ -10,6 +10,7 @@ open Util
 type t = {
   name : string;
   version : string;
+  checksum : string;
   lit : Minisat.Lit.t;
   dep_opt : string list;
   deps : Ast.package Ast.formula;
@@ -22,6 +23,9 @@ type u = {
   lits : (string * Minisat.Lit.t) list Util.SM.t;
   revdeps : Util.SS.t Util.SM.t;
 }
+
+let find u name vers =
+  List.find (fun p -> p.version = vers) (SM.find name u.pack_map)
 
 let find_lit u name vers = List.assoc vers (SM.find name u.lits)
 
@@ -178,7 +182,7 @@ let rec formula_fold_left f acc fo =
   | Ast.Atom a -> f acc a
 
 let make ocaml_versions asts =
-  let add_version vars (dir, ast) =
+  let add_version vars (dir, ast, _) =
     try
       let n = get_name dir ast in
       let v = get_version n dir ast in
@@ -206,7 +210,7 @@ let make ocaml_versions asts =
     | h :: t -> List.iter (conflict name h) t; self_conflict name t
   in
   SM.iter self_conflict vars;
-  let f (dir, ast) =
+  let f (dir, ast, checksum) =
     let name = get_name dir ast in
     let version = get_version name dir ast in
     let cur_lit = find_lit u name version in
@@ -223,12 +227,13 @@ let make ocaml_versions asts =
     List.iter (Minisat.add_clause_l sat) dep_constraint;
     List.iter (Minisat.add_clause_l sat) available;
     List.iter (fun cnf -> List.iter (Minisat.add_clause_l sat) cnf) conflicts;
-    { name; version; lit = cur_lit; dep_opt; deps }
+    { name; version; checksum; lit = cur_lit; dep_opt; deps }
   in
   let compiler_packs =
     let mk_comp version = {
       name = "compiler";
       version;
+      checksum = "";
       lit = find_lit u "compiler" version;
       dep_opt = [];
       deps = Ast.List [];

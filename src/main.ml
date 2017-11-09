@@ -22,18 +22,16 @@ let parse_opam file lb =
      Log.fatal "\"%s\":%d -- lexer error: %s\n" file !Parsing_aux.line msg
 
 let parse_file dir file =
-  Status.(cur.step <- Read Filename.(basename (dirname file)); show ());
   let ic = open_in file in
   let lb = Lexing.from_channel ic in
   let res =
     try
       let res = parse_opam file lb in
-      Status.show_result '+';
       res
-    with _ -> Status.show_result '#'; []
+    with _ -> []
   in
   close_in ic;
-  (dir, res)
+  (dir, res, Digest.to_hex (Digest.file file))
 
 let fold_opam_files f accu dir =
   let rec dig dir accu name =
