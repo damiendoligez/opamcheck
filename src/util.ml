@@ -33,3 +33,17 @@ module StringPairList = struct
     else Pervasives.compare l2 l1
 end
 module SPLS = Set.Make (StringPairList)
+
+let string_search key s =
+  if s = "" then 0 else begin
+    let rec search_first i =
+      if i >= String.length s then i
+      else if s.[i] = key.[0] then check_match i 0
+      else search_first (i + 1)
+    and check_match i j =
+      if j >= String.length key then i
+      else if s.[i + j] = key.[j] then check_match i (j + 1)
+      else search_first (i + 1)
+    in
+    search_first 0
+  end

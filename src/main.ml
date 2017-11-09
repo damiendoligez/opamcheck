@@ -137,7 +137,7 @@ let record_failed u p comp l =
      record_ok u p comp t
 
 let record_uninst u p comp name vers =
-  Log.res "uninst %s.%s %s\n" name vers comp;
+  Log.res "uninst compiler.%s %s.%s\n" comp name vers;
   match get_status p name vers comp with
   | Try (0, 0) | Uninst ->
      set_status p name vers comp Uninst
@@ -195,7 +195,7 @@ let find_sol u comp name vers attempt =
     let cached =
       match attempt with
       | 0 -> SPLS.elements !cache
-      | 1 -> [ Sandbox.ask_opam comp name vers ]
+      | 1 -> []
       | _ -> List.sort (randomize ()) (SPLS.elements !cache)
     in
     (try List.iter check cached with Exit -> ());

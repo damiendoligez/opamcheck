@@ -129,7 +129,7 @@ let color status =
   | _, Depfail, _ -> ("depfail", "d")
   | _, Unknown, _ -> ("unknown", "?")
 
-let summary_hd = "\
+let summary_hd title = sprintf "\
 <!DOCTYPE html>\n<html><head>\n\
 <style>\n\
 .keyfail {color: #bb0000; font-weight: bold;}\n\
@@ -138,20 +138,24 @@ let summary_hd = "\
 .keyuninst {color: #bb5500; font-weight: bold;}\n\
 .curpack {font-weight:bold;}\n\
 </style>\n\
+<title>%s</title>\n\
 </head><body>\n"
+title
+
 let summary_tl = "</body></html>\n"
 
 let print_detail_list oc packvers l =
   let rec loop l =
     match l with
     | [] -> ()
-    | "]" :: ll -> loop ll
     | pv :: ll when pv = packvers ->
       fprintf oc " <span class=\"curpack\">%s</span>%s" pv
               (if ll = [] then "" else " ...")
-    | pv :: ll -> fprintf oc " %s" pv; loop ll
+    | pv :: ll -> fprintf oc " <a href=\"%s.html\">%s</a>" pv pv; loop ll
   in
-  loop (List.rev l)
+  match List.rev l with
+  | "]" :: h :: t -> fprintf oc " %s" h; loop t
+  | l -> loop l
 
 let print_detail_line oc pack vers line =
   let packvers = sprintf "%s.%s" pack vers in
@@ -159,11 +163,17 @@ let print_detail_line oc pack vers line =
   | "fail" :: tag :: "[" :: (pv :: _ as l) when pv = packvers ->
      let f = sprintf "%s.%s-%s.txt" pack vers tag in
      let absf = Filename.quote (Filename.concat data_dir f) in
-     let cmd =
-       sprintf "git -C %s show remotes/origin/%s:opamcheck-log > %s"
-               (Filename.quote mystate_dir) tag absf
-     in
-     command ~ignore_errors:true cmd;
+     begin match Version.split_name_version (List.nth (List.rev l) 1) with
+     | (_, Some v) ->
+       let stdir = Filename.quote (Filename.concat mystate_dir v) in
+       let cmd =
+         sprintf "git -C %s show remotes/origin/%s:opamcheck-log > %s"
+                 stdir tag absf
+       in
+       command ~ignore_errors:true cmd;
+     | _ -> ()
+     | exception _ -> ()
+     end;
      fprintf oc "<a href=\"%s\" class=\"keyfail\">fail</a> %s<br>[" f tag;
      print_detail_list oc packvers l;
      fprintf oc " ]\n<hr>\n"
@@ -180,11 +190,30 @@ let print_detail_line oc pack vers line =
      fprintf oc " <span class=\"curpack\">%s</span><br>[" pv;
      print_detail_list oc packvers l;
      fprintf oc " ]\n<hr>\n"
-  | ["uninst"; pv; vers] ->
-     fprintf oc "<span class=\"keyuninst\">uninst</span> %s %s" pv vers;
+  | ["uninst"; compiler; pv] ->
+     fprintf oc "<span class=\"keyuninst\">uninst</span> %s %s" compiler pv;
      fprintf oc "\n<hr>\n"
   | "" :: _ -> ()
   | _ -> fprintf oc "'%s'\n<hr>\n" line
+
+let group_details l =
+  let get_group s =
+    let key = "compiler." in
+    let keylen = String.length key in
+    let i = string_search "compiler." s in
+    let j =
+      match String.index_from_opt s i ' ' with
+      | Some j -> j
+      | None -> String.length s
+    in
+    String.sub s (i + keylen) (j - (i + keylen))
+  in
+  let f accu s =
+    let g = get_group s in
+    let prev = try SM.find g accu with Not_found -> [] in
+    SM.add g (s :: prev) accu
+  in
+  SM.bindings (List.fold_left f SM.empty l)
 
 let sort_details l =
   let prio s =
@@ -201,8 +230,13 @@ let sort_details l =
 
 let print_details file pack vers (_, _, lines) =
   let oc = open_out (Filename.concat summary_dir file) in
-  fprintf oc "%s" summary_hd;
-  List.iter (print_detail_line oc pack vers) (sort_details lines);
+  fprintf oc "%s" (summary_hd (sprintf "%s.%s" pack vers));
+  fprintf oc "<h1>%s.%s</h1>\n" pack vers;
+  let print_group (key, l) =
+    fprintf oc "<h2>%s</h2><hr>\n" key;
+    List.iter (print_detail_line oc pack vers) (sort_details l)
+  in
+  List.iter print_group (group_details lines);
   fprintf oc "%s" summary_tl;
   close_out oc
 
@@ -213,11 +247,11 @@ let print_result oc (p, st) =
      eprintf "warning: missing version number in results file: %s\n" p
   | Some vers ->
      let auxfile = Filename.concat "data" (p ^ ".html") in
+     print_details auxfile pack vers st;
      let (col, txt) = color st in
      fprintf oc "  <td class=\"%s\"><div class=\"tt\"><a href=\"%s\">%s\
                      </a><span class=\"ttt\">%s %s</span></div></td>\n"
-       col auxfile txt vers col;
-     print_details auxfile pack vers st
+       col auxfile txt vers col
 
 let compare_vers (p1, _) (p2, _) =
   match (Version.split_name_version p1, Version.split_name_version p2) with
@@ -329,8 +363,14 @@ let main () =
   command cmd;
   let cmd = sprintf "mkdir -p %s" (Filename.quote tmp_dir) in
   command cmd;
-  command (sprintf "rm -rf %s" mystate_dir);
-  command (sprintf "git clone %s %s" state_dir mystate_dir);
+  command (sprintf "rm -rf %s" (Filename.quote mystate_dir));
+  command (sprintf "mkdir -p %s" (Filename.quote mystate_dir));
+  let f d =
+    let origin = Filename.(quote (concat state_dir d)) in
+    let dest = Filename.(quote (concat mystate_dir d)) in
+    command (sprintf "git clone %s %s" origin dest);
+  in
+  Array.iter f (Sys.readdir state_dir);
   let index = open_out index_file in
   fprintf index "%s" html_header;
   fprintf index html_body_start !header;

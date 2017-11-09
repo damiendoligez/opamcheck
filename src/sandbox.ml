@@ -17,7 +17,7 @@ let repo = Filename.concat sandbox "opam-repository"
 let result_file v = Filename.concat (gitdir v) "opamcheck-result"
 let log_file v = Filename.concat (gitdir v) "opamcheck-log"
 let opam_env v =
-  sprintf "PATH='%s' OPAMFETCH='%s' OPAMROOT='%s' \
+  sprintf "PATH='%s' OPAMFETCH='%s' OPAMROOT='%s' OPAMNO=true \
            OPAMCOLOR=never OPAMUTF8=never OPAMUTF8MSGS=false \
            OPAMVERBOSE=1 "
     path fetch (opamroot v)
@@ -166,7 +166,11 @@ let print_command_to_log v cmd =
   close_out oc
 
 let play_solution rl =
+eprintf "play_solution: [";
+List.iter (fun (p, v) -> eprintf " %s.%s" p v) rl;
+eprintf " ]\n";
   let compvers = snd (List.hd (List.rev rl)) in
+eprintf "compvers = %s\n" compvers;
   let env = opam_env compvers in
   let total = List.length rl in
   let rec find_start l acc =
@@ -187,9 +191,7 @@ let play_solution rl =
   in
   let rec play l acc =
     match read_result compvers with
-    | Failed l ->
-       Status.show_result '#';
-       Failed l
+    | Failed l -> Failed l
     | OK ->
        begin match l with
        | [] -> OK
@@ -209,7 +211,7 @@ let play_solution rl =
           in
           let packs_done = ((pack, vers) :: acc) in
           print_command_to_log compvers cmd;
-          let rc = run ~env (sprintf "%s | tee %s" cmd (log_file compvers)) in
+          let rc = run ~env (sprintf "%s > %s 2>&1" cmd (log_file compvers)) in
           if rc <> 0 then begin
             Status.show_result '#';
             write_failure compvers packs_done;
@@ -233,10 +235,12 @@ let play_solution rl =
      save compvers [];
      play (List.rev rl) []
   | Some (todo, cached) ->
-     restore compvers cached;
      begin match read_result compvers with
      | Failed l -> Status.show_result '#'; Failed l
-     | OK -> play todo cached
+     | OK when todo = [] -> OK
+     | OK ->
+       restore compvers cached;
+       play todo cached;
      end
 
 let prefix = "-> installed "
