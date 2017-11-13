@@ -203,15 +203,14 @@ let group_details l =
     match string_search key s with
     | None -> ""
     | Some i ->
-      begin match String.index_from_opt s i ' ' with
+      let ik = i + keylen in
+      begin match String.index_from_opt s ik ' ' with
       | None -> ""
-      | Some j ->
-        String.sub s (i + keylen) (j - (i + keylen))
+      | Some j -> String.sub s ik (j - ik)
       end
   in
   let f accu s =
     let g = get_group s in
-    if g = "" then eprintf "can't find compiler version in: %s\n" s;
     let prev = try SM.find g accu with Not_found -> [] in
     SM.add g (s :: prev) accu
   in
