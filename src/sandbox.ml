@@ -17,9 +17,9 @@ let repo = Filename.concat sandbox "opam-repository"
 let result_file v = Filename.concat (gitdir v) "opamcheck-result"
 let log_file v = Filename.concat (gitdir v) "opamcheck-log"
 let opam_env v =
-  sprintf "PATH='%s' OPAMFETCH='%s' OPAMROOT='%s' OPAMNO=true \
+  sprintf "export PATH='%s' OPAMFETCH='%s' OPAMROOT='%s' OPAMNO=true \
            OPAMCOLOR=never OPAMUTF8=never OPAMUTF8MSGS=false \
-           OPAMVERBOSE=1 "
+           OPAMVERBOSE=1; eval $(opam config env); "
     path fetch (opamroot v)
 let tmp_opam_out = Filename.concat tmp "opam_out"
 
@@ -166,11 +166,7 @@ let print_command_to_log v cmd =
   close_out oc
 
 let play_solution rl =
-eprintf "play_solution: [";
-List.iter (fun (p, v) -> eprintf " %s.%s" p v) rl;
-eprintf " ]\n";
   let compvers = snd (List.hd (List.rev rl)) in
-eprintf "compvers = %s\n" compvers;
   let env = opam_env compvers in
   let total = List.length rl in
   let rec find_start l acc =
