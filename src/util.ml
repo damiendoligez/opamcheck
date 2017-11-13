@@ -35,13 +35,15 @@ end
 module SPLS = Set.Make (StringPairList)
 
 let string_search key s =
-  if s = "" then 0 else begin
+  if key = "" then Some 0
+  else if s = "" then None else begin
     let rec search_first i =
-      if i >= String.length s then i
+      if i >= String.length s then None
       else if s.[i] = key.[0] then check_match i 0
       else search_first (i + 1)
     and check_match i j =
-      if j >= String.length key then i
+      if i + j >= String.length s then None
+      else if j >= String.length key then Some i
       else if s.[i + j] = key.[j] then check_match i (j + 1)
       else search_first (i + 1)
     in

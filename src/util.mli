@@ -12,8 +12,8 @@ module SS : Set.S with type elt = string
 module SPS : Set.S with type elt = string * string
 module SPLS : Set.S with type elt = (string * string) list
 
-val string_search : string -> string -> int
+val string_search : string -> string -> int option
 (** [string_search key s]
     Returns the position of the first occurrence of [key] in [s], or
-    [String.length s] if there is no such occurrence.
+    [None] if there is no such occurrence.
 *)

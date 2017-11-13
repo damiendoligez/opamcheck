@@ -200,20 +200,18 @@ let group_details l =
   let get_group s =
     let key = " compiler." in
     let keylen = String.length key in
-    let i = string_search key s in
-    let j =
-      match String.index_from_opt s i ' ' with
-      | Some j -> j
-      | None -> String.length s
-    in
-    if i + keylen > String.length s then begin
-      eprintf "compiler not found in:\n%s\n" s;
-      ""
-    end else
-      String.sub s (i + keylen) (j - (i + keylen))
+    match string_search key s with
+    | None -> ""
+    | Some i ->
+      begin match String.index_from_opt s i ' ' with
+      | None -> ""
+      | Some j ->
+        String.sub s (i + keylen) (j - (i + keylen))
+      end
   in
   let f accu s =
     let g = get_group s in
+    if g = "" then eprintf "can't find compiler version in: %s\n" s;
     let prev = try SM.find g accu with Not_found -> [] in
     SM.add g (s :: prev) accu
   in
