@@ -206,7 +206,11 @@ let group_details l =
       | Some j -> j
       | None -> String.length s
     in
-    String.sub s (i + keylen) (j - (i + keylen))
+    if i + keylen > String.length s then begin
+      eprintf "compiler not found in:\n%s\n" s;
+      ""
+    end else
+      String.sub s (i + keylen) (j - (i + keylen))
   in
   let f accu s =
     let g = get_group s in
@@ -233,7 +237,7 @@ let print_details file pack vers (_, _, lines) =
   fprintf oc "%s" (summary_hd (sprintf "%s.%s" pack vers));
   fprintf oc "<h1>%s.%s</h1>\n" pack vers;
   let print_group (key, l) =
-    fprintf oc "<h2>%s</h2><hr>\n" key;
+    fprintf oc "<h3>%s</h3><hr>\n" key;
     List.iter (print_detail_line oc pack vers) (sort_details l)
   in
   List.iter print_group (group_details lines);
