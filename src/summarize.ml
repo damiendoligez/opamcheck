@@ -198,9 +198,9 @@ let print_detail_line oc pack vers line =
 
 let group_details l =
   let get_group s =
-    let key = "compiler." in
+    let key = " compiler." in
     let keylen = String.length key in
-    let i = string_search "compiler." s in
+    let i = string_search key s in
     let j =
       match String.index_from_opt s i ' ' with
       | Some j -> j
