@@ -50,6 +50,22 @@ function usage () {
     exit 1
 }
 
+# We must not cache the tar files for compiler branches because they
+# change over time (especially trunk!) and the OPAM repo doesn't have
+# MD5 for them.
+function check_special_url () {
+  case "$1" in
+  *github.com/ocaml/ocaml/*/[1-9].[0-9][0-9].[0-9].tar.gz)
+      # full version number is a stable tag
+      return 0;;
+  *github.com/ocaml/ocaml/*)
+      # anything else from the OCaml repo is most probably a changing branch
+      log "ignore cache for ocaml compiler branch"
+      return 1;;
+  *) return 0;
+  esac
+}
+
 mkdir -p "$TMPDIR" "$MDDIR" "$URLDIR"
 
 case $1 in
@@ -67,7 +83,7 @@ case $1 in
         if [[ -f "$MDFILE" ]]; then
             log "found digest in cache"
             cp "$MDFILE" "$3"
-        elif [[ -f "$URLFILE" ]]; then
+        elif [[ -f "$URLFILE" ]] && check_special_url "$2" ; then
             log "wrong md5: req:%s cache:%s for %s" "$1" $(md5sum <"$URLFILE") "$2"
             cp "$URLFILE" "$3"
         else
