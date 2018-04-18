@@ -95,12 +95,19 @@ let parse_line s m =
   | _ -> failwith "syntax error in results file"
 
 let parse chan =
-  let rec loop m =
+  let rec loop lnum m =
     match input_line chan with
-    | l -> loop (parse_line l m)
+    | l ->
+      begin
+        match parse_line l m with
+        | pl -> loop (lnum+1) pl
+        | exception e ->
+          eprintf "error at line %d: %s\n" lnum (Printexc.to_string e);
+          failwith "error in results file";
+      end
     | exception End_of_file -> m
   in
-  loop SM.empty
+  loop 1 SM.empty
 
 let same_pack p1 p2 =
   let (name1, _) = Version.split_name_version p1 in
