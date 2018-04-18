@@ -78,6 +78,7 @@ let parse_list l =
 let parse_line s m =
   let words = String.split_on_char ' ' s in
   match words with
+  | ["ok"; tag; "["; "]"] -> m
   | "ok" :: tag :: "[" :: l ->
      let (comp, pack, deps) = parse_list l in
      let m = add OK s comp m pack in
