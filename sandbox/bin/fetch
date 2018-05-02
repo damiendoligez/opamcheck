@@ -32,12 +32,13 @@ function do_fetch () {
     "$BIN"/realcurl -s -S -k -L "$1" -o "$TMP"
     rc=$?
     if [[ -f "$TMP" ]]; then
-        MD5=$(md5sum <"$TMP")
+        MD5="$(md5sum <"$TMP")"
+        MD5=${MD5%% *}
         log "got rc:%d md5:%s" $rc $MD5
         MDFILE=$(index $MD5)
         mv "$TMP" "$MDFILE"
         mkdir -p "$URLDIR/$1"
-        ln -s "$MDFILE" "$URLDIR/$1/file"
+        ln -sf "$MDFILE" "$URLDIR/$1/file"
     else
         log "got rc:%d and no output file" $rc
         exit $rc
