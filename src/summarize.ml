@@ -17,6 +17,7 @@ let weights_file = Filename.concat Util.sandbox "weights"
 let summary_dir = Filename.concat Util.sandbox "summary"
 let data_dir = Filename.concat summary_dir "data"
 let index_file = Filename.concat summary_dir "index.html"
+let fullindex_file = Filename.concat summary_dir "fullindex.html"
 let state_dir = Filename.concat Util.sandbox "opamstate"
 let mystate_dir = Filename.concat Util.sandbox "opamstate.tmp"
 let tmp_dir = Filename.concat Util.sandbox "tmp"
@@ -249,7 +250,7 @@ let print_details file pack vers (_, _, lines) =
   fprintf oc "%s" summary_tl;
   close_out oc
 
-let print_result oc (p, st) =
+let print_result b (p, st) =
   let (pack, vers) = Version.split_name_version p in
   match vers with
   | None ->
@@ -258,9 +259,9 @@ let print_result oc (p, st) =
      let auxfile = Filename.concat "data" (p ^ ".html") in
      print_details auxfile pack vers st;
      let (col, txt) = color st in
-     fprintf oc "  <td class=\"%s\"><div class=\"tt\"><a href=\"%s\">%s\
-                     </a><span class=\"ttt\">%s %s</span></div></td>\n"
-       col auxfile txt vers col
+     bprintf b "  <td class=\"%s\"><div class=\"tt\"><a href=\"%s\">%s\
+                  </a><span class=\"ttt\">%s %s</span></div></td>\n"
+             col auxfile txt vers col
 
 let compare_vers (p1, _) (p2, _) =
   match (Version.split_name_version p1, Version.split_name_version p2) with
@@ -276,16 +277,17 @@ let is_interesting l =
   in
   List.exists f l
 
-let print_result_line oc l =
+let print_result_line oc fulloc l =
   match l with
   | [] -> assert false
   | (p, _) :: _ ->
-     if is_interesting l then begin
-       let (name, _) = Version.split_name_version p in
-       fprintf oc "<tr><th>%s</th>\n" name;
-       List.iter (print_result oc) (List.sort compare_vers l);
-       fprintf oc "</tr>\n"
-     end
+    let b = Buffer.create 1000 in
+    let (name, _) = Version.split_name_version p in
+    bprintf b "<tr><th>%s</th>\n" name;
+    List.iter (print_result b) (List.sort compare_vers l);
+    bprintf b "</tr>\n";
+    Buffer.output_buffer fulloc b;
+    if is_interesting l then Buffer.output_buffer oc b
 
 let spec = Arg.[
   "-all", Set show_all, " Show all results";
@@ -381,9 +383,13 @@ let main () =
   in
   Array.iter f (Sys.readdir state_dir);
   let index = open_out index_file in
+  let fullindex = open_out fullindex_file in
   fprintf index "%s" html_header;
+  fprintf fullindex "%s" html_header;
   fprintf index html_body_start !header;
-  List.iter (print_result_line index) groups;
+  fprintf fullindex html_body_start !header;
+  List.iter (print_result_line index fullindex) groups;
   fprintf index "%s" html_body_end;
+  fprintf fullindex "%s" html_body_end;
 
 ;; main ()
