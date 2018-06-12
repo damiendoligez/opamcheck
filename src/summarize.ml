@@ -277,13 +277,13 @@ let is_interesting l =
   in
   List.exists f l
 
-let print_result_line oc fulloc l =
+let print_result_line oc fulloc (l, w) =
   match l with
   | [] -> assert false
   | (p, _) :: _ ->
     let b = Buffer.create 1000 in
     let (name, _) = Version.split_name_version p in
-    bprintf b "<tr><th>%s</th>\n" name;
+    bprintf b "<tr><th>%s</th><td>%d</td>\n" name w;
     List.iter (print_result b) (List.sort compare_vers l);
     bprintf b "</tr>\n";
     Buffer.output_buffer fulloc b;
@@ -368,7 +368,8 @@ let main () =
       SM.find p weigths
     | [] -> assert false
   in
-  let cmp g1 g2 = compare (get_weight g2) (get_weight g1) in
+  let groups = List.map (fun g -> (g, get_weight g)) groups in
+  let cmp (_, w1) (_, w2) = compare w2 w1 in
   let groups = List.sort cmp groups in
   let cmd = sprintf "mkdir -p %s" (Filename.concat summary_dir "data") in
   command cmd;
