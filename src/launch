@@ -1,5 +1,8 @@
 #!/bin/sh
 
+PATH=${PATH##*.opam}
+PATH=${PATH#*:}
+
 case $"OPCSANDBOX" in
   "") echo 'OPCSANDBOX is undefined' >&2
       exit 2
