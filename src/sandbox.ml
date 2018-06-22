@@ -224,7 +224,8 @@ let play_solution rl =
      let dir = gitdir compvers in
      run0 (sprintf "/bin/rm -rf %s" dir);
      run0 (sprintf "/bin/mkdir -p %s" (opamroot compvers));
-     run0 ~env (sprintf "opam init --no-setup default %s" repo);
+     run0 ~env
+          (sprintf "opam init --comp=%s --no-setup default %s" compvers repo);
      run0 (sprintf "git -C %s init" dir);
      run0 (sprintf "echo '!*' >%s" (Filename.concat dir ".gitignore"));
      write_success compvers;

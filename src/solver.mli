@@ -5,14 +5,16 @@
 
 val solve :
   Package.u ->
+  ?forbid: (string * string) list ->
   (string * string) list ->
   ocaml:string ->
   pack:string ->
   vers:string ->
   (string * string) list option
-(** [solve u prev ~ocaml ~pack ~vers]
+(** [solve u ~forbid prev ~ocaml ~pack ~vers]
     Return a solution for installing [pack] at version [vers] that
-    extends the solution [prev].
+    extends the solution [prev] and does not include any package from
+    [forbid].
 *)
 
 exception Schedule_failure of (string * string) list * (string * string) list

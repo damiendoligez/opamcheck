@@ -161,18 +161,26 @@ let randomize () =
     let dy = Digest.string (sprintf "%d %d" seed hy) in
     compare dx dy
 
-let find_sol u comp name vers attempt =
+let find_sol u comp name vers attempt forbid prev =
   let result = ref None in
   let n = ref 0 in
-  let check prev =
+  let check cached =
     incr n;
-    Status.(cur.step <- Solve (!n, List.length prev));
-    match Solver.solve u prev ~ocaml:comp ~pack:name ~vers with
+    Status.(cur.step <- Solve (!n, List.length cached));
+    let f forb pp =
+      match Solver.solve u ~forbid:(pp :: forb) cached
+                         ~ocaml:comp ~pack:name ~vers
+      with
+      | None -> forb
+      | Some _ -> pp :: forb
+    in
+    let forbid = List.fold_left f forbid prev in
+    match Solver.solve ~forbid u cached ~ocaml:comp ~pack:name ~vers with
     | None -> ()
     | Some raw_sol ->
        let sol = List.filter Env.is_package raw_sol in
        begin try
-         result := Some (Solver.schedule u prev sol (name, vers));
+         result := Some (Solver.schedule u cached sol (name, vers));
          raise Exit
        with Solver.Schedule_failure (partial, remain) ->
          Log.warn "schedule failed, partial = ";
@@ -190,54 +198,59 @@ let find_sol u comp name vers attempt =
   if empty_sol = None then begin
     result := None
   end else begin
-    (* On first attempt, use cache in largest-first order; on second
-       attempt use empty cache; on later attempts use randomized cache. *)
+    (* On first attempt, use cache. *)
     let cached =
       match attempt with
       | 0 -> SPLS.elements !cache
-      | 1 -> []
-      | _ -> List.sort (randomize ()) (SPLS.elements !cache)
+      | _ -> [ [] ]
     in
     (try List.iter check cached with Exit -> ());
   end;
   Status.show ();
   Status.show_result (if !result = None then '#' else '+');
-  !result
+  (!result, forbid)
 
+(*
+   test each package, first with a cached solution, then with
+   successive minimal solutions
+*)
 let test_comp_pack u progress comp pack =
   let name = pack.Package.name in
   let vers = pack.Package.version in
-  let st = get_status progress name vers comp in
-  if st <> OK then begin
-    Status.(
-      cur.ocaml <- comp;
-      cur.pack_cur <- sprintf "%s.%s" name vers;
-    );
-    let attempt =
-      match st with
-      | Try (f, d) -> f + d
-      | _ -> 2
-    in
-    Log.log "testing: %s.%s (attempt %d)\n" name vers attempt;
-    match find_sol u comp name vers attempt with
-    | None ->
-       Log.log "no solution\n";
-       (* make sure attempt gets incremented *)
-       begin match get_status progress name vers comp with
-       | Try (f, d) -> set_status progress name vers comp (Try (f, d + 1))
-       | _ -> ()
-       end
-    | Some sched ->
-       Log.log "solution: ";
-       print_solution Log.log_chan sched;
-       Log.log "\n";
-       match Sandbox.play_solution sched with
-       | Sandbox.OK -> record_ok u progress comp sched
-       | Sandbox.Failed l ->
-          record_failed u progress comp l;
-          if List.hd l <> (name, vers) then
-            record_depfail u progress comp name vers l
-  end
+  let rec loop forbid prev attempt =
+    if attempt >= !retries then () else begin
+      let st = get_status progress name vers comp in
+      if st <> OK then begin
+        Status.(
+          cur.ocaml <- comp;
+          cur.pack_cur <- sprintf "%s.%s" name vers;
+        );
+        Log.log "testing: %s.%s (attempt %d)\n" name vers attempt;
+        match find_sol u comp name vers attempt forbid prev with
+        | None, _ ->
+           Log.log "no solution\n";
+           (* make sure attempt gets incremented *)
+           begin match get_status progress name vers comp with
+           | Try (f, d) -> set_status progress name vers comp (Try (f, d + 1))
+           | _ -> ()
+           end
+        | Some sched, forbid ->
+           Log.log "solution: ";
+           print_solution Log.log_chan sched;
+           Log.log "\n";
+           begin match Sandbox.play_solution sched with
+           | Sandbox.OK -> record_ok u progress comp sched
+           | Sandbox.Failed l ->
+              record_failed u progress comp l;
+              if List.hd l <> (name, vers) then
+                record_depfail u progress comp name vers l;
+              loop forbid sched (attempt + 1);
+           end
+      end
+    end
+  in
+  loop [] [] 0
+
 
 let register_exclusion u s =
   let (name, vers) = Version.split_name_version s in
@@ -320,7 +333,7 @@ let main () =
     | Try _ -> false
     | Fail -> fail_done
   in
-  (* First pass: try each package twice with latest compiler. *)
+  (* First pass: try each package with the latest compiler. *)
   let packs = List.filter (fun p -> not (is_done comp p false)) packs in
   Status.(
     cur.pass <- 1;
@@ -329,14 +342,11 @@ let main () =
   );
   let f pack =
     test_comp_pack u p comp pack;
-    if not (is_done comp pack false) then test_comp_pack u p comp pack;
     Status.(cur.pack_done <- cur.pack_done + 1)
   in
   Log.log "## first pass (%d packages)\n" Status.(cur.pack_total);
   List.iter f packs;
-  (* Second pass: try failing packages with every other compiler
-     three times: once with normal cache, once with opam solution, and
-     once with randomized cache.
+  (* Second pass: try failing packages with every other compiler.
      Stop as soon as it installs OK with some configuration.
   *)
   let packs = List.filter (fun p -> not (is_done comp p false)) packs in
@@ -350,9 +360,7 @@ let main () =
       match comps with
       | [] -> ()
       | h :: t ->
-         for i = 0 to 2 do
-           if not (is_done h pack true) then test_comp_pack u p h pack
-         done;
+         test_comp_pack u p h pack;
          if get_status p pack.Package.name pack.Package.version h <> OK then
            loop t
     in
@@ -360,29 +368,6 @@ let main () =
     Status.(cur.pack_done <- cur.pack_done + 1)
   in
   Log.log "## second pass (%d packages)\n" Status.(cur.pack_total);
-  List.iter f packs;
-  (* Third pass: try newly-failing packages [retries] times. *)
-  let is_ok c pack =
-    get_status p pack.Package.name pack.Package.version c = OK
-  in
-  let is_new_fail pack = List.exists (fun c -> is_ok c pack) comps in
-  let packs = List.filter is_new_fail packs in
-  Status.(
-    cur.pass <- 3;
-    cur.pack_done <- 0;
-    cur.pack_total <- List.length packs
-  );
-  let f pack =
-    let rec loop i =
-      if i > 0 && not (is_done comp pack true) then begin
-        test_comp_pack u p comp pack;
-        loop (i - 1)
-      end
-    in
-    loop !retries;
-    Status.(cur.pack_done <- cur.pack_done + 1)
-  in
-  Log.log "## third pass (%d packages)\n" Status.(cur.pack_total);
   List.iter f packs;
   Status.message "\nDONE\n"
 

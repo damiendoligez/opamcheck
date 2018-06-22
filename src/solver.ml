@@ -40,7 +40,7 @@ let negate u l =
   in
   List.fold_left f [] l
 
-let solve u prev ~ocaml ~pack ~vers =
+let solve u ?(forbid=[]) prev ~ocaml ~pack ~vers =
   let f (n, vs) =
     match vs with
     | [v] -> (n, v)
@@ -52,7 +52,9 @@ let solve u prev ~ocaml ~pack ~vers =
   let asm1 = List.map f query in
   let depopts = find_depopts u prev in
   let asm2 = negate u (SS.elements depopts) in
-  let assumptions = Array.of_list (asm1 @ asm2) in
+  let f (name, vers) = Minisat.Lit.neg (Package.find_lit u name vers) in
+  let asm3 = List.map f forbid in
+  let assumptions = Array.of_list (asm3 @ asm1 @ asm2) in
   try
     Minisat.solve ~assumptions u.sat;
     Some (extract_solution u (SM.bindings u.lits) [])
