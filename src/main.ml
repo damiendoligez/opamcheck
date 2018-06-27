@@ -164,17 +164,16 @@ let randomize () =
 let find_sol u comp name vers attempt forbid prev =
   let result = ref None in
   let n = ref 0 in
+  let f forb pp =
+    match Solver.solve u ~forbid:(pp :: forb) [] ~ocaml:comp ~pack:name ~vers
+    with
+    | None -> forb
+    | Some _ -> pp :: forb
+  in
+  let forbid = List.fold_left f forbid prev in
   let check cached =
     incr n;
     Status.(cur.step <- Solve (!n, List.length cached));
-    let f forb pp =
-      match Solver.solve u ~forbid:(pp :: forb) cached
-                         ~ocaml:comp ~pack:name ~vers
-      with
-      | None -> forb
-      | Some _ -> pp :: forb
-    in
-    let forbid = List.fold_left f forbid prev in
     match Solver.solve ~forbid u cached ~ocaml:comp ~pack:name ~vers with
     | None -> ()
     | Some raw_sol ->
