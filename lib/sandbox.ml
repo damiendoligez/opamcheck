@@ -105,7 +105,7 @@ let get_tag l =
 let rec parse_failure_file ic acc =
   match Version.split_name_version (input_line ic) with
   | (name, Some vers) -> parse_failure_file ic ((name, vers) :: acc)
-  | (name, None) -> assert false
+  | (_name, None) -> assert false
   | exception End_of_file -> List.rev acc
 
 let read_result v =
@@ -270,7 +270,7 @@ let ask_opam comp name vers =
      let res = parse_opam_schedule ic [("compiler", comp)] in
      close_in ic;
      res
-  | res ->
+  | _ ->
      Log.warn "opam install failed for %s %s.%s\n" comp name vers;
      []
   end

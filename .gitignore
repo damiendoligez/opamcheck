@@ -4,3 +4,5 @@
 /dot-opam
 /dot-opam-cache
 .DS_Store
+_build
+.merlin

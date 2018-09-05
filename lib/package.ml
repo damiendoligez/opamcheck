@@ -141,7 +141,7 @@ let translate_constraint pack c (comp, vers) =
 let translate_package c p =
   let name = fst p in
   match snd p with
-  | None -> safe_atom c name (fun x -> true)
+  | None -> safe_atom c name (fun _ -> true)
   | Some f -> translate_form (translate_constraint name) c f
 
 let translate_dep c d =
@@ -149,14 +149,6 @@ let translate_dep c d =
 
 let translate_conflict c pack =
   mk_impl_1 c.cur_lit (mk_not (translate_package c pack))
-
-let comp_to_string = function
-  | Ast.Eq -> "="
-  | Ast.Lt -> "<"
-  | Ast.Gt -> ">"
-  | Ast.Le -> "<="
-  | Ast.Ge -> ">="
-  | Ast.Ne -> "!="
 
 let translate_filter c filter =
   match filter with
@@ -167,11 +159,6 @@ let translate_available c avail ocv =
   let ocv = translate_form (translate_constraint "ocaml-version") c ocv in
   let avail = translate_form translate_filter c avail in
   mk_impl_1 c.cur_lit (ocv @ avail)
-
-let rec union l1 l2 =
-  match l1 with
-  | [] -> l2
-  | h :: t -> if List.mem h l2 then union t l2 else union t (h :: l2)
 
 let rec formula_fold_left f acc fo =
   match fo with

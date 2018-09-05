@@ -4,3 +4,5 @@
 *)
 
 val token : Lexing.lexbuf -> Parser.token
+
+val print : Parser.token -> unit

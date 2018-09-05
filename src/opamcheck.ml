@@ -3,6 +3,7 @@
    author: Damien Doligez
 *)
 
+open Opamchecklib
 open Printf
 
 open Util
@@ -94,7 +95,7 @@ let print_solution chan l =
   List.iter (fun (n, v) -> fprintf chan " %s.%s" n v) l;
   fprintf chan " ]"
 
-let record_ok u p comp l =
+let record_ok _u p comp l =
   let (tag, list) = Sandbox.get_tag l in
   Log.res "ok %s [%s ]\n" tag list;
   let add_ok (name, vers) =
@@ -136,14 +137,14 @@ let record_failed u p comp l =
      end;
      record_ok u p comp t
 
-let record_uninst u p comp name vers =
+let record_uninst _u p comp name vers =
   Log.res "uninst compiler.%s %s.%s\n" comp name vers;
   match get_status p name vers comp with
   | Try (0, 0) | Uninst ->
      set_status p name vers comp Uninst
   | _ -> assert false
 
-let record_depfail u p comp name vers l =
+let record_depfail _u p comp name vers l =
   match get_status p name vers comp with
   | OK -> ()
   | Try (f, d) ->

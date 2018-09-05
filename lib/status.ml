@@ -29,8 +29,6 @@ let cur = {
   step = Read "";
 }
 
-let spaces = String.make 80 ' '
-
 let stopfile = Filename.concat Util.sandbox "stop"
 
 let show () =
@@ -49,7 +47,7 @@ let show () =
     | Read s -> sprintf "Read %s" s
     | Cache -> "Cache"
     | Solve (n, len) -> sprintf "Solve %d [%d]" n len
-    | Install { stored = true; cur; total; cur_pack } ->
+    | Install { stored = true; cur; total; _ } ->
        sprintf "Checkout %d/%d" cur total
     | Install { stored = false; cur; total; cur_pack } ->
        sprintf "Inst %d/%d %s" cur total cur_pack

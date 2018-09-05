@@ -32,4 +32,6 @@ type url =
   | Mirrors of string list
   | Key of string * string
 
+val comp_to_string : comp -> string
+
 val show_item : opam -> unit

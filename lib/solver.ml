@@ -3,8 +3,6 @@
    author: Damien Doligez
 *)
 
-open Printf
-
 open Package
 open Util
 
@@ -60,9 +58,6 @@ let solve u ?(forbid=[]) prev ~ocaml ~pack ~vers =
     Some (extract_solution u (SM.bindings u.lits) [])
   with Minisat.Unsat ->
     None
-
-let get_pack_vers mp pack vers =
-  List.find (fun x -> x.version = vers) (SM.find pack mp)
 
 exception Schedule_failure of (string * string) list * (string * string) list
 
