@@ -21,6 +21,17 @@ let opam_env v =
            OPAMVERBOSE=1; eval $(opam config env); "
     path fetch (opamroot v)
 
+let get_opam_version () : [`Opam1 | `Opam2] =
+  try
+    let cin = Unix.open_process_in "opam --version" in
+    let c = input_char cin in
+    ignore (Unix.close_process_in cin);
+    match c with
+    | '1' -> `Opam1
+    | '2' -> `Opam2
+    | _ -> Log.fatal "Unsupported opam version"
+  with _ -> Log.fatal "Cannot get opam version"
+
 let run ?(env="") cmd =
   Log.log "# %s\n" cmd;
   Sys.command (env ^ cmd)
@@ -219,11 +230,18 @@ let play_solution rl =
   in
   match find_start rl [] with
   | None ->
-     let dir = gitdir compvers in
+    let dir = gitdir compvers in
+    let opam_version = get_opam_version () in
      run0 (sprintf "/bin/rm -rf %s" dir);
      run0 (sprintf "/bin/mkdir -p %s" (opamroot compvers));
-     run0 ~env
-          (sprintf "opam init --comp=%s --no-setup default %s" compvers repo);
+     begin match opam_version with
+       | `Opam1 ->
+         run0 ~env
+           (sprintf "opam init --comp=%s --no-setup default %s" compvers repo)
+       | `Opam2 ->
+         run0 ~env
+           (sprintf "opam init --compiler=%s --no-setup -y default %s" compvers repo)
+     end;
      run0 (sprintf "git -C %s init" dir);
      run0 (sprintf "echo '!*' >%s" (Filename.concat dir ".gitignore"));
      write_success compvers;
