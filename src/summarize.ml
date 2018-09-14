@@ -3,6 +3,7 @@
    author: Damien Doligez
 *)
 
+open Opamchecklib
 open Printf
 
 open Util
@@ -79,18 +80,18 @@ let parse_list l =
 let parse_line s m =
   let words = String.split_on_char ' ' s in
   match words with
-  | ["ok"; tag; "["; "]"] -> m
-  | "ok" :: tag :: "[" :: l ->
+  | ["ok"; _tag; "["; "]"] -> m
+  | "ok" :: _tag :: "[" :: l ->
      let (comp, pack, deps) = parse_list l in
      let m = add OK s comp m pack in
      List.fold_left (add OK (" " ^ s) comp) m deps
   | ["uninst"; comp; pack] ->
      add Uninst s comp m pack
-  | "depfail" :: tag :: pack :: "[" :: l ->
+  | "depfail" :: _tag :: pack :: "[" :: l ->
      let (comp, _, deps) = parse_list l in
      let m = add Depfail s comp m pack in
      List.fold_left (add OK (" " ^ s) comp) m deps
-  | "fail" :: tag :: "[" :: l ->
+  | "fail" :: _tag :: "[" :: l ->
      let (comp, pack, deps) = parse_list l in
      let m = add Fail s comp m pack in
      List.fold_left (add OK (" " ^ s) comp) m deps

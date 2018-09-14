@@ -1,0 +1,3 @@
+(executables
+  (names opamcheck summarize)
+  (libraries opamchecklib))

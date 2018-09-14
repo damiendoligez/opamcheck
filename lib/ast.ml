@@ -34,6 +34,13 @@ type url =
   | Mirrors of string list
   | Key of string * string
 
+let comp_to_string = function
+  | Eq -> "="
+  | Lt -> "<"
+  | Gt -> ">"
+  | Le -> "<="
+  | Ge -> ">="
+  | Ne -> "!="
 
 let show_list name f l =
   printf "%s = [\n" name;
