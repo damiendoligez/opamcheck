@@ -24,7 +24,7 @@ and package = string * constrain formula option
 
 and filter = string * constrain option
 
-and comp = Eq | Lt | Gt | Le | Ge | Ne
+and comp = [ `Eq | `Lt | `Gt | `Leq | `Geq | `Neq ]
 
 and constrain = comp * string
 
