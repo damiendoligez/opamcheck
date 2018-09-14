@@ -12,26 +12,18 @@ let retries = ref 5
 let seed = ref 123
 let compilers = ref []
 
-let parse_opam file lb =
-  Parsing_aux.file := file;
-  Parsing_aux.line := 1;
-  try Parser.opam Lexer.token lb
-  with
-  | Parser.Error ->
-     Log.fatal "\"%s\":%d -- syntax error\n" file !Parsing_aux.line
-  | Failure msg ->
-     Log.fatal "\"%s\":%d -- lexer error: %s\n" file !Parsing_aux.line msg
+let parse_opam file =
+  try Parser.opam file with
+  | Parser.Ill_formed_file (line, col)->
+    Log.fatal "\"%s\":%d:%d -- Ill-formed opam file\n" file line col
 
 let parse_file dir file =
-  let ic = open_in file in
-  let lb = Lexing.from_channel ic in
   let res =
     try
-      let res = parse_opam file lb in
+      let res = parse_opam file in
       res
     with _ -> []
   in
-  close_in ic;
   (dir, res, Digest.to_hex (Digest.file file))
 
 let fold_opam_files f accu dir =
