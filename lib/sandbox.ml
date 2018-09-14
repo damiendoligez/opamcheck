@@ -201,7 +201,7 @@ let play_solution rl =
           );
           let cmd =
             if pack = "compiler" then
-              sprintf "opam switch %s" vers
+              "true"
             else
               sprintf "opam install %s" packvers
           in
