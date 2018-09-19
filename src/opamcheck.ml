@@ -14,7 +14,7 @@ let compilers = ref []
 
 let parse_opam file =
   try Parser.opam file with
-  | Parser.Ill_formed_file (line, col)->
+  | Parser.Ill_formed_file (file, line, col) ->
     Log.fatal "\"%s\":%d:%d -- Ill-formed opam file\n" file line col
 
 let parse_file dir file =

@@ -9,7 +9,7 @@
 *)
 
 (* Carries the location of the error. *)
-exception Ill_formed_file of (int * int)
+exception Ill_formed_file of (string * int * int)
 
 (* [opam file] parses an opam file given its filename.
 

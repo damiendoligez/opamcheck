@@ -10,7 +10,7 @@
 
 open OpamParserTypes
 
-exception Ill_formed_file of (int * int)
+exception Ill_formed_file of (string * int * int)
 
 let rec filter_map f = function
   | [] -> []
@@ -32,23 +32,20 @@ let lift f = fun x -> Some (f x)
    type to the expected expression in [Ast] -- or raise [Ill_formed_file].
 *)
 
-(* Ignore the file name of the position *)
-let trim_pos ((_, x, y) : pos) = (x, y)
-
-let pos_of_value (v: value): int * int =
+let pos_of_value (v: value): string * int * int =
   match v with
-  | Bool (p, _) -> trim_pos p
-  | Int (p, _) -> trim_pos p
-  | String (p, _) -> trim_pos p
-  | Relop (p, _, _, _) -> trim_pos p
-  | Prefix_relop (p, _, _) -> trim_pos p
-  | Logop (p, _, _, _) -> trim_pos p
-  | Pfxop (p, _, _) -> trim_pos p
-  | Ident (p, _) -> trim_pos p
-  | List (p, _) -> trim_pos p
-  | Group (p, _) -> trim_pos p
-  | Option (p, _, _) -> trim_pos p
-  | Env_binding (p, _, _, _) -> trim_pos p
+  | Bool (p, _) -> p
+  | Int (p, _) -> p
+  | String (p, _) -> p
+  | Relop (p, _, _, _) -> p
+  | Prefix_relop (p, _, _) -> p
+  | Logop (p, _, _, _) -> p
+  | Pfxop (p, _, _) -> p
+  | Ident (p, _) -> p
+  | List (p, _) -> p
+  | Group (p, _) -> p
+  | Option (p, _, _) -> p
+  | Env_binding (p, _, _, _) -> p
 
 let str_of_value = function
   | Ident (_, s) | String (_, s) -> s
@@ -80,14 +77,14 @@ let rec ast_of_formula
       | Some f1, Some f2 -> Some (Ast.Or (f1, f2))
       | Some _, None | None, Some _ ->
         (* For "a | b", ignoring one of the elements is currently not supported *)
-        raise (Ill_formed_file (trim_pos p))
+        raise (Ill_formed_file p)
       | None, None -> None
     end
   | Pfxop (_, `Not, v) ->
     omap (ast_of_formula atom v) (fun x -> Ast.Not x)
   | Pfxop (p, `Defined, _v) ->
     (* "? a" is currently not supported *)
-    raise (Ill_formed_file (trim_pos p))
+    raise (Ill_formed_file p)
   | _ ->
     omap (atom v) (fun x -> Ast.Atom x)
 
