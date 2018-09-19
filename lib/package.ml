@@ -131,12 +131,12 @@ let safe_atom c pack filter =
 
 let translate_constraint pack c (comp, vers) =
   match comp with
-  | Ast.Eq -> safe_atom c pack ((=) vers)
-  | Ast.Ne -> safe_atom c pack ((<>) vers)
-  | Ast.Lt -> safe_atom c pack (fun x -> Version.compare x vers < 0)
-  | Ast.Le -> safe_atom c pack (fun x -> Version.compare x vers <= 0)
-  | Ast.Gt -> safe_atom c pack (fun x -> Version.compare x vers > 0)
-  | Ast.Ge -> safe_atom c pack (fun x -> Version.compare x vers >= 0)
+  | `Eq -> safe_atom c pack ((=) vers)
+  | `Neq -> safe_atom c pack ((<>) vers)
+  | `Lt -> safe_atom c pack (fun x -> Version.compare x vers < 0)
+  | `Leq -> safe_atom c pack (fun x -> Version.compare x vers <= 0)
+  | `Gt -> safe_atom c pack (fun x -> Version.compare x vers > 0)
+  | `Geq -> safe_atom c pack (fun x -> Version.compare x vers >= 0)
 
 let translate_package c p =
   let name = fst p in
@@ -153,7 +153,7 @@ let translate_conflict c pack =
 let translate_filter c filter =
   match filter with
   | var, Some constr -> translate_constraint var c constr
-  | var, None -> translate_constraint var c (Ast.Eq, "true")
+  | var, None -> translate_constraint var c (`Eq, "true")
 
 let translate_available c avail ocv =
   let ocv = translate_form (translate_constraint "ocaml-version") c ocv in

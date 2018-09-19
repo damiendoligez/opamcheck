@@ -73,12 +73,12 @@ let eval_constraint name env (op, vers) =
   let check (n, v) =
     n = name
     && match op with
-       | Ast.Eq -> v = vers
-       | Ast.Lt -> Version.compare v vers < 0
-       | Ast.Gt -> Version.compare v vers > 0
-       | Ast.Le -> Version.compare v vers <= 0
-       | Ast.Ge -> Version.compare v vers >= 0
-       | Ast.Ne -> v <> vers
+       | `Eq -> v = vers
+       | `Lt -> Version.compare v vers < 0
+       | `Gt -> Version.compare v vers > 0
+       | `Leq -> Version.compare v vers <= 0
+       | `Geq -> Version.compare v vers >= 0
+       | `Neq -> v <> vers
   in
   List.exists check env
 

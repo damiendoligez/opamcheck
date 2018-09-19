@@ -26,7 +26,7 @@ and package = string * constrain formula option
 
 and filter = string * constrain option
 
-and comp = Eq | Lt | Gt | Le | Ge | Ne
+and comp = [ `Eq | `Lt | `Gt | `Leq | `Geq | `Neq ]
 
 and constrain = comp * string
 
@@ -35,12 +35,12 @@ type url =
   | Key of string * string
 
 let comp_to_string = function
-  | Eq -> "="
-  | Lt -> "<"
-  | Gt -> ">"
-  | Le -> "<="
-  | Ge -> ">="
-  | Ne -> "!="
+  | `Eq -> "="
+  | `Lt -> "<"
+  | `Gt -> ">"
+  | `Leq -> "<="
+  | `Geq -> ">="
+  | `Neq -> "!="
 
 let show_list name f l =
   printf "%s = [\n" name;
@@ -48,12 +48,12 @@ let show_list name f l =
   printf "]\n"
 
 let show_comp = function
-  | Eq -> printf "="
-  | Lt -> printf "<"
-  | Gt -> printf ">"
-  | Le -> printf "<="
-  | Ge -> printf ">="
-  | Ne -> printf "!="
+  | `Eq -> printf "="
+  | `Lt -> printf "<"
+  | `Gt -> printf ">"
+  | `Leq -> printf "<="
+  | `Geq -> printf ">="
+  | `Neq -> printf "!="
 
 let show_constrain (c, s) = show_comp c; printf " %s" s
 

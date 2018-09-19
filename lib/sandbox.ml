@@ -7,7 +7,6 @@ open Printf
 
 let sandbox = Sys.getenv "OPCSANDBOX"
 let bin = Filename.concat sandbox "bin"
-let tmp = Filename.concat sandbox "tmp"
 let path = sprintf "%s:%s" bin (Sys.getenv "PATH")
 let fetch = "fetch %{checksum}% %{url}% %{out}%"
 let opamstatedir = Filename.concat sandbox "opamstate"
@@ -21,7 +20,17 @@ let opam_env v =
            OPAMCOLOR=never OPAMUTF8=never OPAMUTF8MSGS=false \
            OPAMVERBOSE=1; eval $(opam config env); "
     path fetch (opamroot v)
-let tmp_opam_out = Filename.concat tmp "opam_out"
+
+let get_opam_version () : [`Opam1 | `Opam2] =
+  try
+    let cin = Unix.open_process_in "opam --version" in
+    let c = input_char cin in
+    ignore (Unix.close_process_in cin);
+    match c with
+    | '1' -> `Opam1
+    | '2' -> `Opam2
+    | _ -> Log.fatal "Unsupported opam version"
+  with _ -> Log.fatal "Cannot get opam version"
 
 let run ?(env="") cmd =
   Log.log "# %s\n" cmd;
@@ -201,7 +210,7 @@ let play_solution rl =
           );
           let cmd =
             if pack = "compiler" then
-              sprintf "opam switch %s" vers
+              "true"
             else
               sprintf "opam install %s" packvers
           in
@@ -221,11 +230,18 @@ let play_solution rl =
   in
   match find_start rl [] with
   | None ->
-     let dir = gitdir compvers in
+    let dir = gitdir compvers in
+    let opam_version = get_opam_version () in
      run0 (sprintf "/bin/rm -rf %s" dir);
      run0 (sprintf "/bin/mkdir -p %s" (opamroot compvers));
-     run0 ~env
-          (sprintf "opam init --comp=%s --no-setup default %s" compvers repo);
+     begin match opam_version with
+       | `Opam1 ->
+         run0 ~env
+           (sprintf "opam init --comp=%s --no-setup default %s" compvers repo)
+       | `Opam2 ->
+         run0 ~env
+           (sprintf "opam init --compiler=%s --no-setup -y default %s" compvers repo)
+     end;
      run0 (sprintf "git -C %s init" dir);
      run0 (sprintf "echo '!*' >%s" (Filename.concat dir ".gitignore"));
      write_success compvers;
@@ -239,38 +255,3 @@ let play_solution rl =
        restore compvers cached;
        play todo cached;
      end
-
-let prefix = "-> installed "
-let prefix_len = String.length prefix
-
-let is_prefixed s =
-  String.length s >= prefix_len && String.sub s 0 prefix_len = prefix
-
-let rec parse_opam_schedule ic accu =
-  match input_line ic with
-  | s ->
-     if is_prefixed s then begin
-       let pack = String.sub s prefix_len (String.length s - prefix_len) in
-       match Version.split_name_version pack with
-       | (name, Some vers) -> parse_opam_schedule ic ((name, vers) :: accu)
-       | _ -> assert false
-     end else
-       parse_opam_schedule ic accu
-  | exception End_of_file -> accu
-
-let ask_opam comp name vers =
-  restore comp [("compiler", comp)];
-  let cmd =
-    sprintf "%s OPAMVERBOSE=0 opam install -y --dry-run %s.%s >%s"
-      (opam_env comp) name vers tmp_opam_out
-  in
-  begin match Sys.command cmd with
-  | 0 ->
-     let ic = open_in tmp_opam_out in
-     let res = parse_opam_schedule ic [("compiler", comp)] in
-     close_in ic;
-     res
-  | _ ->
-     Log.warn "opam install failed for %s %s.%s\n" comp name vers;
-     []
-  end
