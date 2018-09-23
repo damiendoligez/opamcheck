@@ -5,22 +5,6 @@
 
 open Printf
 
-let sandbox = Sys.getenv "OPCSANDBOX"
-let bin = Filename.concat sandbox "bin"
-let path = sprintf "%s:%s" bin (Sys.getenv "PATH")
-let fetch = "fetch %{checksum}% %{url}% %{out}%"
-let opamstatedir = Filename.concat sandbox "opamstate"
-let gitdir v = Filename.concat opamstatedir v
-let opamroot v = Filename.concat (gitdir v) "dotopam"
-let repo = Filename.concat sandbox "opam-repository"
-let result_file v = Filename.concat (gitdir v) "opamcheck-result"
-let log_file v = Filename.concat (gitdir v) "opamcheck-log"
-let opam_env v =
-  sprintf "export PATH='%s' OPAMFETCH='%s' OPAMROOT='%s' OPAMNO=true \
-           OPAMCOLOR=never OPAMUTF8=never OPAMUTF8MSGS=false \
-           OPAMVERBOSE=1; eval $(opam config env); "
-    path fetch (opamroot v)
-
 let get_opam_version () : [`Opam1 | `Opam2] =
   try
     let cin = Unix.open_process_in "opam --version" in
@@ -117,8 +101,8 @@ let rec parse_failure_file ic acc =
   | (_name, None) -> assert false
   | exception End_of_file -> List.rev acc
 
-let read_result v =
-  let ic = open_in (result_file v) in
+let read_result file =
+  let ic = open_in file in
   let res =
     match input_line ic with
     | "Failure" -> Failed (parse_failure_file ic [])
@@ -129,73 +113,81 @@ let read_result v =
   close_in ic;
   res
 
-let write_failure v l =
-  let oc = open_out (result_file v) in
+let write_failure file l =
+  let oc = open_out file in
   fprintf oc "Failure\n";
   List.iter (fun (p, v) -> fprintf oc "%s.%s\n" p v) l;
   close_out oc
 
-let write_success v =
-  let oc = open_out (result_file v) in
+let write_success file =
+  let oc = open_out file in
   fprintf oc "Success\n";
   close_out oc
 
-let save v l =
-  let dir = gitdir v in
-  let root = opamroot v in
-  let status = match read_result v with OK -> "ok" | _ -> "failed" in
-  encode root;
+let save ~gitdir ~opamroot ~result_file l =
+  let status = match read_result result_file with OK -> "ok" | _ -> "failed" in
+  encode opamroot;
   let (tag, list) = get_tag l in
-  run0 ~retry:3 (sprintf "git -C %s checkout -b %s" dir tag);
-  run0 ~retry:3 (sprintf "git -C %s add -A" dir);
+  run0 ~retry:3 (sprintf "git -C %s checkout -b %s" gitdir tag);
+  run0 ~retry:3 (sprintf "git -C %s add -A" gitdir);
   run0 ~retry:3 (sprintf "git -C %s commit --allow-empty -m '(%s) %s [%s ]'"
-                         dir status tag list);
-  decode root
+                         gitdir status tag list);
+  decode opamroot
 
-let restore v l =
-  let dir = gitdir v in
-  let root = opamroot v in
+let restore ~gitdir ~opamroot l =
   let (tag, _) = get_tag l in
-  run0 (sprintf "git -C %s checkout -f %s" dir tag);
-  run0 (sprintf "git -C %s clean -d -f -x" dir);
-  decode root
+  run0 (sprintf "git -C %s checkout -f %s" gitdir tag);
+  run0 (sprintf "git -C %s clean -d -f -x" gitdir);
+  decode opamroot
 
-let restore_result v l =
+let restore_result ~gitdir l =
   let (tag, _) = get_tag l in
   let rc =
-    run (sprintf "git -C %s checkout -f %s -- opamcheck-result" (gitdir v) tag)
+    run (sprintf "git -C %s checkout -f %s -- opamcheck-result" gitdir tag)
   in
   rc = 0
 
-let print_command_to_log v cmd =
-  let oc =
-    open_out_gen [Open_creat; Open_append; Open_text] 0o666 (log_file v)
-  in
+let print_command_to_log log_file cmd =
+  let oc = open_out_gen [Open_creat; Open_append; Open_text] 0o666 log_file in
   fprintf oc "\n================\n$ %s\n\n" cmd;
   close_out oc
 
-let play_solution rl =
+let play_solution ~sandbox rl =
   let compvers = snd (List.hd (List.rev rl)) in
-  let env = opam_env compvers in
   let total = List.length rl in
+  let bin = Filename.concat sandbox "bin" in
+  let path = sprintf "%s:%s" bin (Sys.getenv "PATH") in
+  let fetch = "fetch %{checksum}% %{url}% %{out}%" in
+  let opamstatedir = Filename.concat sandbox "opamstate" in
+  let gitdir = Filename.concat opamstatedir compvers in
+  let opamroot = Filename.concat gitdir "dotopam" in
+  let repo = Filename.concat sandbox "opam-repository" in
+  let result_file = Filename.concat gitdir "opamcheck-result" in
+  let log_file = Filename.concat gitdir "opamcheck-log" in
+  let opam_env =
+    sprintf "export PATH='%s' OPAMFETCH='%s' OPAMROOT='%s' OPAMNO=true \
+             OPAMCOLOR=never OPAMUTF8=never OPAMUTF8MSGS=false \
+             OPAMVERBOSE=1; eval $(opam config env); "
+      path fetch opamroot in
+
   let rec find_start l acc =
     Status.(
       cur.step <- Install { stored = true; cur = List.length l; total;
                             cur_pack = "" };
     );
-    if restore_result compvers l then begin
-      Status.show ();
+    if restore_result ~gitdir l then begin
+      Status.show ~sandbox ();
       Some (acc, l)
     end else begin
       match l with
       | [] ->
-          Status.show ();
+          Status.show ~sandbox ();
           None
       | h :: t -> find_start t (h :: acc)
     end
   in
   let rec play l acc =
-    match read_result compvers with
+    match read_result result_file with
     | Failed l -> Failed l
     | OK ->
        begin match l with
@@ -206,7 +198,7 @@ let play_solution rl =
             let count = List.length acc in
             cur.step <- Install { stored = false; total; cur = count;
                                   cur_pack = packvers };
-            show ();
+            show ~sandbox ();
           );
           let cmd =
             if pack = "compiler" then
@@ -215,43 +207,42 @@ let play_solution rl =
               sprintf "opam install %s" packvers
           in
           let packs_done = ((pack, vers) :: acc) in
-          print_command_to_log compvers cmd;
-          let rc = run ~env (sprintf "%s > %s 2>&1" cmd (log_file compvers)) in
+          print_command_to_log log_file cmd;
+          let rc = run ~env:opam_env (sprintf "%s > %s 2>&1" cmd log_file) in
           if rc <> 0 then begin
             Status.show_result '#';
-            write_failure compvers packs_done;
+            write_failure result_file packs_done;
           end else begin
             Status.show_result '+';
-            write_success compvers;
+            write_success result_file;
           end;
-          save compvers packs_done;
+          save ~gitdir ~opamroot ~result_file packs_done;
           play t packs_done
        end
   in
   match find_start rl [] with
   | None ->
-    let dir = gitdir compvers in
     let opam_version = get_opam_version () in
-     run0 (sprintf "/bin/rm -rf %s" dir);
-     run0 (sprintf "/bin/mkdir -p %s" (opamroot compvers));
+     run0 (sprintf "/bin/rm -rf %s" gitdir);
+     run0 (sprintf "/bin/mkdir -p %s" opamroot);
      begin match opam_version with
        | `Opam1 ->
-         run0 ~env
+         run0 ~env:opam_env
            (sprintf "opam init --comp=%s --no-setup default %s" compvers repo)
        | `Opam2 ->
-         run0 ~env
+         run0 ~env:opam_env
            (sprintf "opam init --compiler=%s --no-setup -y default %s" compvers repo)
      end;
-     run0 (sprintf "git -C %s init" dir);
-     run0 (sprintf "echo '!*' >%s" (Filename.concat dir ".gitignore"));
-     write_success compvers;
-     save compvers [];
+     run0 (sprintf "git -C %s init" gitdir);
+     run0 (sprintf "echo '!*' >%s" (Filename.concat gitdir ".gitignore"));
+     write_success result_file;
+     save ~gitdir ~opamroot ~result_file [];
      play (List.rev rl) []
   | Some (todo, cached) ->
-     begin match read_result compvers with
+     begin match read_result result_file with
      | Failed l -> Status.show_result '#'; Failed l
      | OK when todo = [] -> OK
      | OK ->
-       restore compvers cached;
+       restore ~gitdir ~opamroot cached;
        play todo cached;
      end

@@ -29,9 +29,9 @@ let cur = {
   step = Read "";
 }
 
-let stopfile = Filename.concat Util.sandbox "stop"
 
-let show () =
+let show ~sandbox () =
+  let stopfile = Filename.concat sandbox "stop" in
   if Sys.file_exists stopfile then begin
     (try Sys.remove stopfile with _ -> ());
     Log.log "STOPPED BY USER\n";

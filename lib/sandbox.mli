@@ -7,7 +7,7 @@ type result =
   | OK
   | Failed of (string * string) list
 
-val play_solution : (string * string) list -> result
+val play_solution : sandbox:string -> (string * string) list -> result
 (** Call opam to install the elements of the list one by one. Whenever
     possible, use cached state instead of doing the installation.
 *)

@@ -3,8 +3,6 @@
    author: Damien Doligez
 *)
 
-val sandbox : string
-
 module SM : Map.S with type key = string
 module SPM : Map.S with type key = string * string
 

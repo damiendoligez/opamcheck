@@ -11,6 +11,10 @@ open Util
 let retries = ref 5
 let seed = ref 123
 let compilers = ref []
+let sandbox = ref None
+let show_all = ref false
+let verbose = ref false
+let header = ref ""
 
 let parse_opam file =
   try Parser.opam file with
@@ -37,8 +41,6 @@ let fold_opam_files f accu dir =
       accu
   in
   dig dir accu "."
-
-let repo = Filename.concat Util.sandbox "opam-repository"
 
 type status =
   | Try of int * int  (* number of fails, number of depfails *)
@@ -154,7 +156,7 @@ let randomize () =
     let dy = Digest.string (sprintf "%d %d" seed hy) in
     compare dx dy
 
-let find_sol u comp name vers attempt forbid prev =
+let find_sol ~sandbox u comp name vers attempt forbid prev =
   let result = ref None in
   let n = ref 0 in
   let f forb pp =
@@ -176,9 +178,9 @@ let find_sol u comp name vers attempt forbid prev =
          raise Exit
        with Solver.Schedule_failure (partial, remain) ->
          Log.warn "schedule failed, partial = ";
-         print_solution Log.warn_chan partial;
+         print_solution (Log.warn_chan ()) partial;
          Log.warn "\nremain = ";
-         print_solution Log.warn_chan remain;
+         print_solution (Log.warn_chan ()) remain;
          Log.warn "\n";
          forbid_solution u raw_sol;
        end
@@ -198,7 +200,7 @@ let find_sol u comp name vers attempt forbid prev =
     in
     (try List.iter check cached with Exit -> ());
   end;
-  Status.show ();
+  Status.show ~sandbox ();
   Status.show_result (if !result = None then '#' else '+');
   (!result, forbid)
 
@@ -206,7 +208,7 @@ let find_sol u comp name vers attempt forbid prev =
    test each package, first with a cached solution, then with
    successive minimal solutions
 *)
-let test_comp_pack u progress comp pack =
+let test_comp_pack ~sandbox u progress comp pack =
   let name = pack.Package.name in
   let vers = pack.Package.version in
   let rec loop forbid prev attempt =
@@ -218,7 +220,7 @@ let test_comp_pack u progress comp pack =
           cur.pack_cur <- sprintf "%s.%s" name vers;
         );
         Log.log "testing: %s.%s (attempt %d)\n" name vers attempt;
-        match find_sol u comp name vers attempt forbid prev with
+        match find_sol ~sandbox u comp name vers attempt forbid prev with
         | None, _ ->
            Log.log "no solution\n";
            (* make sure attempt gets incremented *)
@@ -228,9 +230,9 @@ let test_comp_pack u progress comp pack =
            end
         | Some sched, forbid ->
            Log.log "solution: ";
-           print_solution Log.log_chan sched;
+           print_solution (Log.log_chan ()) sched;
            Log.log "\n";
-           begin match Sandbox.play_solution sched with
+           begin match Sandbox.play_solution ~sandbox sched with
            | Sandbox.OK -> record_ok u progress comp sched
            | Sandbox.Failed l ->
               record_failed u progress comp l;
@@ -260,24 +262,63 @@ let print_version () =
   exit 0
 
 let spec = [
+  "-sandbox", Arg.String (fun s -> sandbox := Some s),
+    "<path>  Set the location of the sandbox directory to <path> (mandatory; \
+     alternatively can be specified by setting the OPCSANDBOX \
+     environment variable)";
   "-retries", Arg.Set_int retries,
-           "<n> retry failed packages <n> times (default 5)";
-  "-seed", Arg.Set_int seed, "<n> set pseudo-random seed to <n>";
-  "-version", Arg.Unit print_version, " print version number and exit";
+           "<n>  Retry failed packages <n> times (default 5) (run)";
+  "-seed", Arg.Set_int seed, "<n>  Set pseudo-random seed to <n> (run)";
+  "-all", Set show_all, " Show all results (summarize)";
+  "-v", Set verbose, " Activate verbose mode (summarize)";
+  "-head", Set_string header, "<s>  Insert <s> at top of body in index file \
+                               (summarize)";
+  "-version", Arg.Unit print_version, " Print version number and exit";
 ]
 
-let usage = "usage: opamcheck [-retries <n>] [-seed <n>] version..."
+let usage =
+  Format.sprintf "usage: @[<v>%s@,%s@]"
+    "opamcheck [-sandbox <path>] [-retries <n>] [-seed <n>] run version..."
+    "opamcheck [-sandbox <path>] [-all] [-v] [-head <s>] summarize version"
+
+let arg_anon =
+  let command = ref None in
+  fun s ->
+    match !command, s with
+    | None, "run" -> command := Some `Run
+    | None, "summarize" -> command := Some `Summarize
+    | None, cmd -> raise (Arg.Bad ("Invalid command " ^ cmd))
+    | Some `Run, ver -> compilers := ver :: !compilers
+    | Some `Summarize, ver ->
+      if !compilers <> [] then
+        raise (Arg.Bad "too many arguments: \
+                        only one version can be provided to summarize")
+      else compilers := [ver]
+
+let get_sandbox () =
+  match !sandbox with
+  | Some s -> s
+  | None ->
+    try Sys.getenv "OPCSANDBOX"
+    with Not_found ->
+      eprintf "opamcheck: missing -sandbox option and \
+               environment variable OPCSANDBOX is undefined";
+      exit 5
 
 let main () =
-  Arg.parse spec (fun s -> compilers := s :: !compilers) usage;
+  Arg.parse spec arg_anon usage;
   if !compilers = [] then begin
     Arg.usage spec usage;
     exit 1;
   end;
   Random.init !seed;
-  let f accu dir name = parse_file dir name :: accu in
+  let sandbox = get_sandbox () in
+  Log.init ~sandbox ();
   Log.log "reading packages files\n";
-  let asts = fold_opam_files f [] repo in
+  let repo = Filename.concat sandbox "opam-repository" in
+  let asts = fold_opam_files (fun acc dir name ->
+    parse_file dir name :: acc
+  ) [] repo in
   let u = Package.make !compilers asts in
 
   let oc = open_out (Filename.concat sandbox "weights") in
@@ -316,7 +357,7 @@ let main () =
     | None -> record_uninst u p comp name vers
     | Some _ -> ()
   in
-  Status.(cur.step <- Solve (0, 0); show ());
+  Status.(cur.step <- Solve (0, 0); show ~sandbox ());
   Log.log "checking for uninstallable packages\n";
   List.iter (fun comp -> List.iter (check_inst comp) packs) !compilers;
   let is_done c pack fail_done =
@@ -333,7 +374,7 @@ let main () =
     cur.pack_total <- List.length packs
   );
   let f pack =
-    test_comp_pack u p comp pack;
+    test_comp_pack ~sandbox u p comp pack;
     Status.(cur.pack_done <- cur.pack_done + 1)
   in
   Log.log "## first pass (%d packages)\n" Status.(cur.pack_total);
@@ -352,7 +393,7 @@ let main () =
       match comps with
       | [] -> ()
       | h :: t ->
-         test_comp_pack u p h pack;
+         test_comp_pack ~sandbox u p h pack;
          if get_status p pack.Package.name pack.Package.version h <> OK then
            loop t
     in

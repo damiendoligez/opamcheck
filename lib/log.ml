@@ -5,36 +5,59 @@
 
 open Printf
 
-let log_chan = Pervasives.stdout
+type loggers = {
+  log : out_channel;
+  results : out_channel;
+  status : out_channel;
+  warnings : out_channel;
+  trace : out_channel;
+}
+
+let loggers = ref None
+
+let init ~sandbox () =
+  let results = open_out (Filename.concat sandbox "results") in
+  let status = open_out (Filename.concat sandbox "status") in
+  let warnings = open_out (Filename.concat sandbox "warnings") in
+  let trace = open_out (Filename.concat sandbox "trace") in
+  loggers :=
+    Some { log = Pervasives.stdout; results; status; warnings; trace }
+
+let get_loggers () =
+  match !loggers with
+  | None -> failwith "Logging was not setup properly. Call [Log.init] first."
+  | Some l -> l
+
+let log_chan () = (get_loggers ()).log
+let res_chan () = (get_loggers ()).results
+let status_chan () = (get_loggers ()).status
+let warn_chan () = (get_loggers ()).warnings
+let trace_chan () = (get_loggers ()).trace
+
+let log_msg chan s =
+  fprintf chan "%s" s; flush chan
 
 let log fmt (* args *) =
-  let f s = fprintf log_chan "%s" s; flush log_chan in
-  kprintf f fmt (* args *)
-
-let res_chan = open_out (Filename.concat Util.sandbox "results")
+  let l = get_loggers () in
+  kprintf (log_msg l.log) fmt (* args *)
 
 let res fmt (* args *) =
-  let f s = fprintf res_chan "%s" s; flush res_chan in
-  kprintf f fmt (* args *)
-
-let status_chan = open_out (Filename.concat Util.sandbox "status")
+  let l = get_loggers () in
+  kprintf (log_msg l.results) fmt (* args *)
 
 let status fmt (* args *) =
-  let f s = fprintf status_chan "%s" s; flush status_chan in
-  kprintf f fmt (* args *)
-
-let warn_chan = open_out (Filename.concat Util.sandbox "warnings")
+  let l = get_loggers () in
+  kprintf (log_msg l.status) fmt (* args *)
 
 let warn fmt (* args *) =
-  let f s = fprintf warn_chan "%s" s; flush warn_chan in
-  kprintf f fmt (* args *)
-
-let trace_chan = open_out (Filename.concat Util.sandbox "trace")
+  let l = get_loggers () in
+  kprintf (log_msg l.warnings) fmt (* args *)
 
 let trace fmt (* args *) =
-  let f s = fprintf trace_chan "%s" s; flush trace_chan in
-  kprintf f fmt (* args *)
+  let l = get_loggers () in
+  kprintf (log_msg l.trace) fmt (* args *)
 
 let fatal fmt (* args *) =
-  let f s = fprintf log_chan "%s" s; exit 5 in
+  let l = get_loggers () in
+  let f s = fprintf l.log "%s" s; exit 5 in
   kprintf f fmt (* args *)
