@@ -20,7 +20,7 @@ type t = {
 
 val cur : t
 
-val show : unit -> unit
+val show : sandbox:string -> unit -> unit
 val show_result : char -> unit
 val message : string -> unit
 

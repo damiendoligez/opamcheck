@@ -3,14 +3,6 @@
    author: Damien Doligez
 *)
 
-open Printf
-
-let sandbox =
-  try Sys.getenv "OPCSANDBOX"
-  with Not_found ->
-    eprintf "opamcheck: environment variable OPCSANDBOX is undefined\n";
-    exit 5
-
 module SM = Map.Make (String)
 
 module StringPair = struct

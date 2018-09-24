@@ -1,5 +1,5 @@
 all:
-	dune build src/opamcheck.exe src/summarize.exe
+	dune build src/opamcheck.exe
 
 clean:
 	dune clean
