@@ -1,4 +1,4 @@
-(* main.ml -- main program for opamcheck
+(* opamcheck.ml -- main program for opamcheck
    Copyright 2017 Inria
    author: Damien Doligez
 *)
@@ -63,7 +63,6 @@ let read_lines file =
     []
 
 let cache = ref (SPLS.singleton [])
-let sat = Minisat.create ();
 
 type progress = {
   mutable statuses : (string * status) list SPM.t;
@@ -89,7 +88,7 @@ let print_solution chan l =
   List.iter (fun (n, v) -> fprintf chan " %s.%s" n v) l;
   fprintf chan " ]"
 
-let record_ok _u p comp l =
+let record_ok p comp l =
   let (tag, list) = Sandbox.get_tag l in
   Log.res "ok %s [%s ]\n" tag list;
   let add_ok (name, vers) =
@@ -129,16 +128,16 @@ let record_failed u p comp l =
         end
      | Uninst | Fail -> assert false
      end;
-     record_ok u p comp t
+     record_ok p comp t
 
-let record_uninst _u p comp name vers =
+let record_uninst p comp name vers =
   Log.res "uninst compiler.%s %s.%s\n" comp name vers;
   match get_status p name vers comp with
   | Try (0, 0) | Uninst ->
      set_status p name vers comp Uninst
   | _ -> assert false
 
-let record_depfail _u p comp name vers l =
+let record_depfail p comp name vers l =
   match get_status p name vers comp with
   | OK -> ()
   | Try (f, d) ->
@@ -146,15 +145,6 @@ let record_depfail _u p comp name vers l =
      Log.res "depfail %s %s.%s [%s ]\n" tag name vers list;
      set_status p name vers comp (Try (f, d + 1))
   | Uninst | Fail -> assert false
-
-let randomize () =
-  let seed = Random.bits () in
-  fun x y ->
-    let hx = Hashtbl.hash x in
-    let hy = Hashtbl.hash y in
-    let dx = Digest.string (sprintf "%d %d" seed hx) in
-    let dy = Digest.string (sprintf "%d %d" seed hy) in
-    compare dx dy
 
 let find_sol ~sandbox u comp name vers attempt forbid prev =
   let result = ref None in
@@ -233,11 +223,11 @@ let test_comp_pack ~sandbox u progress comp pack =
            print_solution (Log.log_chan ()) sched;
            Log.log "\n";
            begin match Sandbox.play_solution ~sandbox sched with
-           | Sandbox.OK -> record_ok u progress comp sched
+           | Sandbox.OK -> record_ok progress comp sched
            | Sandbox.Failed l ->
               record_failed u progress comp l;
               if List.hd l <> (name, vers) then
-                record_depfail u progress comp name vers l;
+                record_depfail progress comp name vers l;
               loop forbid sched (attempt + 1);
            end
       end
@@ -354,7 +344,7 @@ let main () =
     let name = pack.Package.name in
     let vers = pack.Package.version in
     match Solver.solve u [] ~ocaml:comp ~pack:name ~vers with
-    | None -> record_uninst u p comp name vers
+    | None -> record_uninst p comp name vers
     | Some _ -> ()
   in
   Status.(cur.step <- Solve (0, 0); show ~sandbox ());
