@@ -38,9 +38,9 @@ let get ocaml_versions =
     List.sort_uniq compare (List.map compiler_to_ocaml_version ocaml_versions)
   in
   ("ocaml", ocaml_versions)
-  :: ("ocaml-version", vers)
+  :: ("ocaml_version", vers)
   :: predefined
 
 let is_package (name, _) =
   not (List.exists (fun (n, _) -> n = name)
-         (("ocaml-version", []) :: predefined))
+         (("ocaml_version", []) :: predefined))

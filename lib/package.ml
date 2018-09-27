@@ -156,7 +156,7 @@ let translate_filter c filter =
   | var, None -> translate_constraint var c (`Eq, "true")
 
 let translate_available c avail ocv =
-  let ocv = translate_form (translate_constraint "ocaml-version") c ocv in
+  let ocv = translate_form (translate_constraint "ocaml_version") c ocv in
   let avail = translate_form translate_filter c avail in
   mk_impl_1 c.cur_lit (ocv @ avail)
 
