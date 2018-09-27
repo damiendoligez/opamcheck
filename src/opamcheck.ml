@@ -9,7 +9,6 @@ open Printf
 open Util
 
 let retries = ref 5
-let seed = ref 123
 let compilers = ref []
 let sandbox = ref None
 let show_all = ref false
@@ -258,7 +257,6 @@ let spec = [
      environment variable)";
   "-retries", Arg.Set_int retries,
            "<n>  Retry failed packages <n> times (default 5) (run)";
-  "-seed", Arg.Set_int seed, "<n>  Set pseudo-random seed to <n> (run)";
   "-all", Set show_all, " Show all results (summarize)";
   "-v", Set verbose, " Activate verbose mode (summarize)";
   "-head", Set_string header, "<s>  Insert <s> at top of body in index file \
@@ -268,7 +266,7 @@ let spec = [
 
 let usage =
   Format.sprintf "usage: @[<v>%s@,%s@]"
-    "opamcheck [-sandbox <path>] [-retries <n>] [-seed <n>] run version..."
+    "opamcheck [-sandbox <path>] [-retries <n>] run version..."
     "opamcheck [-sandbox <path>] [-all] [-v] [-head <s>] summarize version"
 
 let arg_anon =
@@ -301,7 +299,6 @@ let main () =
     Arg.usage spec usage;
     exit 1;
   end;
-  Random.init !seed;
   let sandbox = get_sandbox () in
   Log.init ~sandbox ();
   Log.log "reading packages files\n";
