@@ -304,7 +304,11 @@ let main () =
   Log.log "reading packages files\n";
   let repo = Filename.concat sandbox "opam-repository" in
   let asts = fold_opam_files (fun acc dir name ->
-    parse_file dir name :: acc
+    if List.mem (fst (Version.split_name_version dir))
+                ["ocaml-base-compiler"; "ocaml-variants"] then
+      acc
+    else
+      parse_file dir name :: acc
   ) [] repo in
   let u = Package.make !compilers asts in
 
