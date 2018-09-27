@@ -218,10 +218,10 @@ let make ocaml_versions asts =
   in
   let compiler_packs =
     let mk_comp version = {
-      name = "compiler";
+      name = "ocaml";
       version;
       checksum = "";
-      lit = find_lit u "compiler" version;
+      lit = find_lit u "ocaml" version;
       dep_opt = [];
       deps = Ast.List [];
     } in

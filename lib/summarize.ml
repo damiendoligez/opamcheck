@@ -34,7 +34,7 @@ let merge x y =
 let add ~version status line comp m p =
   let comp =
     match Version.split_name_version comp with
-    | ("compiler", Some v) -> v
+    | ("ocaml", Some v) -> v
     | _ -> assert false
   in
   let (st_old, st_new, lines) = get m p in
@@ -193,7 +193,7 @@ let print_detail_line
 
 let group_details l =
   let get_group s =
-    let key = " compiler." in
+    let key = " ocaml." in
     let keylen = String.length key in
     match string_search key s with
     | None -> ""
@@ -265,7 +265,7 @@ let compare_vers (p1, _) (p2, _) =
 
 let is_interesting ~show_all l =
   let f (pack, st) =
-    fst (Version.split_name_version pack) <> "compiler"
+    fst (Version.split_name_version pack) <> "ocaml"
     && match color st with
        | ("ok" | "uninst" | "new_uninst" | "unknown"), _ -> show_all
        | _ -> true

@@ -201,7 +201,7 @@ let play_solution ~sandbox rl =
             show ~sandbox ();
           );
           let cmd =
-            if pack = "compiler" then
+            if pack = "ocaml" then
               "true"
             else
               sprintf "opam install %s" packvers

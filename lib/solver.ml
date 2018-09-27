@@ -117,7 +117,7 @@ let schedule u prev sol target =
        let (h, t) = find_next pr todo [] in
        loop (h :: pr) (if h = target then [] else t)
   in
-  let check_comp (n, _) = n = "compiler" in
+  let check_comp (n, _) = n = "ocaml" in
   if List.exists check_comp todo then begin
     let comp = List.find check_comp todo in
     let rest = List.filter (fun pv -> not (check_comp pv)) todo in
