@@ -6,7 +6,7 @@
 SB="$OPCSANDBOX"
 TMPDIR="$SB/fetch-cache/tmp"
 TMP="$TMPDIR/$$"
-LOGFILE="$SB/log.txt"
+LOGFILE="$SB/fetch-cache/log.txt"
 MDDIR="$SB/fetch-cache/md5"
 URLDIR="$SB/fetch-cache/url"
 BIN="$SB/bin"
@@ -79,13 +79,14 @@ case $1 in
         if [[ $# -ne 3 ]]; then usage; fi
         exec >>"$LOGFILE" 2>&1
         log "# fetch %s" "$*"
-        MDFILE="$(index "$1")"
+        MDSUM=${1#md5=}
+        MDFILE="$(index "$MDSUM")"
         URLFILE="$URLDIR/$2/file"
         if [[ -f "$MDFILE" ]]; then
             log "found digest in cache"
             cp "$MDFILE" "$3"
         elif [[ -f "$URLFILE" ]] && check_special_url "$2" ; then
-            log "wrong md5: req:%s cache:%s for %s" "$1" $(md5sum <"$URLFILE") "$2"
+            log "wrong md5: req:%s cache:%s for %s" "$MDSUM" $(md5sum <"$URLFILE") "$2"
             cp "$URLFILE" "$3"
         else
             do_fetch "$2"
