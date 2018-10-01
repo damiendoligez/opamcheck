@@ -290,7 +290,7 @@ let get_sandbox () =
     try Sys.getenv "OPCSANDBOX"
     with Not_found ->
       eprintf "opamcheck: missing -sandbox option and \
-               environment variable OPCSANDBOX is undefined";
+               environment variable OPCSANDBOX is undefined\n";
       exit 5
 
 let main () =
