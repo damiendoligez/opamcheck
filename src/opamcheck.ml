@@ -120,7 +120,7 @@ let record_failed u p comp l =
      | OK -> ()
      | Try (f, d) ->
         if f >= !retries then begin
-          forbid_solution u [("compiler", comp); (name, vers)];
+          forbid_solution u [("ocaml", comp); (name, vers)];
           set_status p name vers comp Fail
         end else begin
           set_status p name vers comp (Try (f + 1, d))
@@ -395,4 +395,4 @@ let main () =
   List.iter f packs;
   Status.message "\nDONE\n"
 
-;; Printexc.catch main ()
+;; main ()
