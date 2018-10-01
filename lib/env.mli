@@ -14,6 +14,4 @@ val get : string list -> (string * string list) list
 *)
 
 val is_package : string * string -> bool
-(** Return true iff the argument is not a predefined variable, or
-    is "compiler".
-*)
+(** Return true iff the argument is not a predefined variable *)
