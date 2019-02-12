@@ -18,7 +18,8 @@ let header = ref ""
 let parse_opam file =
   try Parser.opam file with
   | Parser.Ill_formed_file (file, line, col) ->
-    Log.fatal "\"%s\":%d:%d -- Ill-formed opam file\n" file line col
+    Log.warn "\"%s\":%d.%d:\n  Ill-formed opam file\n" file line col;
+    []
 
 let parse_file dir file =
   let res =
