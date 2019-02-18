@@ -126,12 +126,17 @@ let record_failed u p comp l =
         end else begin
           set_status p name vers comp (Try (f + 1, d))
         end
-     | Uninst | Fail -> assert false
+     | Uninst ->
+       Log.warn "Warning: uninstallable package was attempted and failed:\n\
+                   %s\n" list;
+     | Fail ->
+       Log.warn "Warning: failed package was attempted again and failed:\n\
+                   %s\n" list;
      end;
      record_ok p comp t
 
 let record_uninst p comp name vers =
-  Log.res "uninst compiler.%s %s.%s\n" comp name vers;
+  Log.res "uninst ocaml.%s %s.%s\n" comp name vers;
   match get_status p name vers comp with
   | Try (0, 0) | Uninst ->
      set_status p name vers comp Uninst
