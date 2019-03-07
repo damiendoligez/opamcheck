@@ -12,8 +12,9 @@ let rec extract_solution u bindings accu =
   | (name, l) :: t ->
      let is_true (_, lit) = Minisat.value u.sat lit = Minisat.V_true in
      let acc2 =
-       try (name, fst (List.find is_true l)) :: accu
-       with Not_found -> accu
+       match List.find is_true l with
+       | exception Not_found -> accu
+       | (vers, _) -> (name, vers) :: accu
      in
      extract_solution u t acc2
 
@@ -31,10 +32,10 @@ let find_depopts u l =
 
 let negate u l =
   let f accu name =
-    try
-      let vers = SM.find name u.Package.lits in
+    match SM.find name u.Package.lits with
+    | exception Not_found -> accu
+    | vers ->
       List.map (fun (_, lit) -> Minisat.Lit.neg lit) vers @ accu
-    with Not_found -> accu
   in
   List.fold_left f [] l
 
@@ -53,11 +54,11 @@ let solve u ?(forbid=[]) prev ~ocaml ~pack ~vers =
   let f (name, vers) = Minisat.Lit.neg (Package.find_lit u name vers) in
   let asm3 = List.map f forbid in
   let assumptions = Array.of_list (asm3 @ asm1 @ asm2) in
-  try
-    Minisat.solve ~assumptions u.sat;
-    Some (extract_solution u (SM.bindings u.lits) [])
-  with Minisat.Unsat ->
+  match Minisat.solve ~assumptions u.sat with
+  | exception Minisat.Unsat ->
     None
+  | () ->
+    Some (extract_solution u (SM.bindings u.lits) [])
 
 exception Schedule_failure of (string * string) list * (string * string) list
 
