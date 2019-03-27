@@ -6,3 +6,5 @@
 .DS_Store
 _build
 .merlin
+/sandbox/launch-info
+/sandbox/weights
