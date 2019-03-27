@@ -14,6 +14,7 @@ let sandbox = ref None
 let show_all = ref false
 let verbose = ref false
 let header = ref ""
+let smoke = ref false
 
 let parse_opam file =
   try Parser.opam file with
@@ -253,20 +254,22 @@ let register_exclusion u s =
     Log.warn "Warning in excludes: %s not found\n" s
 
 let print_version () =
-  printf "2.1.0\n";
+  printf "2.2.0\n";
   exit 0
 
 let spec = [
+  "-all", Arg.Set show_all, " Show all results (summarize)";
+  "-head", Arg.Set_string header,
+        "<s>  Insert <s> at top of body in index file (summarize)";
+  "-retries", Arg.Set_int retries,
+           "<n>  Retry failed packages <n> times (default 5) (run)";
   "-sandbox", Arg.String (fun s -> sandbox := Some s),
     "<path>  Set the location of the sandbox directory to <path> (mandatory; \
      alternatively can be specified by setting the OPCSANDBOX \
      environment variable)";
-  "-retries", Arg.Set_int retries,
-           "<n>  Retry failed packages <n> times (default 5) (run)";
-  "-all", Set show_all, " Show all results (summarize)";
-  "-v", Set verbose, " Activate verbose mode (summarize)";
-  "-head", Set_string header, "<s>  Insert <s> at top of body in index file \
-                               (summarize)";
+  "-smoke", Arg.Set smoke,
+         " Smoke test mode: compile only a few packages (run)";
+  "-v", Arg.Set verbose, " Activate verbose mode (summarize)";
   "-version", Arg.Unit print_version, " Print version number and exit";
 ]
 
@@ -275,8 +278,9 @@ let usage =
     "opamcheck [-sandbox <path>] [-retries <n>] run version..."
     "opamcheck [-sandbox <path>] [-all] [-v] [-head <s>] summarize version"
 
+let command = ref None
+
 let arg_anon =
-  let command = ref None in
   fun s ->
     match !command, s with
     | None, "run" -> command := Some `Run
@@ -299,13 +303,14 @@ let get_sandbox () =
                environment variable OPCSANDBOX is undefined\n";
       exit 5
 
-let main () =
-  Arg.parse spec arg_anon usage;
-  if !compilers = [] then begin
-    Arg.usage spec usage;
-    exit 1;
-  end;
-  let sandbox = get_sandbox () in
+(* Not tail-rec, only use with n < 100 *)
+let rec list_truncate l n =
+  match l, n with
+  | _, 0 -> []
+  | [], _ -> []
+  | x :: t, n -> x :: list_truncate t (n-1)
+
+let main_run sandbox =
   Log.init ~sandbox ();
   Log.log "reading packages files\n";
   let repo = Filename.concat sandbox "opam-repository" in
@@ -375,6 +380,7 @@ let main () =
     Status.(cur.pack_done <- cur.pack_done + 1)
   in
   Log.log "## first pass (%d packages)\n" Status.(cur.pack_total);
+  let packs = if !smoke then list_truncate packs 5 else packs in
   List.iter f packs;
   (* Second pass: try failing packages with every other compiler.
      Stop as soon as it installs OK with some configuration.
@@ -400,5 +406,22 @@ let main () =
   Log.log "## second pass (%d packages)\n" Status.(cur.pack_total);
   List.iter f packs;
   Status.message "\nDONE\n"
+
+let main_summarize sandbox =
+  let version = match !compilers with [v] -> v | _ -> assert false in
+  Summarize.summarize ~show_all:!show_all ~verbose:!verbose ~header:!header
+                      ~sandbox ~version ()
+
+let main () =
+  Arg.parse spec arg_anon usage;
+  if !compilers = [] then begin
+    Arg.usage spec usage;
+    exit 1;
+  end;
+  let sandbox = get_sandbox () in
+  match !command with
+  | None -> assert false
+  | Some `Run -> main_run sandbox
+  | Some `Summarize -> main_summarize sandbox
 
 ;; main ()
