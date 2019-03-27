@@ -270,8 +270,8 @@ let usage =
     "opamcheck [-sandbox <path>] [-retries <n>] run version..."
     "opamcheck [-sandbox <path>] [-all] [-v] [-head <s>] summarize version"
 
+let command = ref None in
 let arg_anon =
-  let command = ref None in
   fun s ->
     match !command, s with
     | None, "run" -> command := Some `Run
@@ -294,12 +294,7 @@ let get_sandbox () =
                environment variable OPCSANDBOX is undefined\n";
       exit 5
 
-let main () =
-  Arg.parse spec arg_anon usage;
-  if !compilers = [] then begin
-    Arg.usage spec usage;
-    exit 1;
-  end;
+let main_run () =
   let sandbox = get_sandbox () in
   Log.init ~sandbox ();
   Log.log "reading packages files\n";
@@ -395,5 +390,16 @@ let main () =
   Log.log "## second pass (%d packages)\n" Status.(cur.pack_total);
   List.iter f packs;
   Status.message "\nDONE\n"
+
+let main () =
+  Arg.parse spec arg_anon usage;
+  if !compilers = [] then begin
+    Arg.usage spec usage;
+    exit 1;
+  end;
+  match !command with
+  | None -> assert false
+  | Some `Run -> main_run ()
+  | Some `Summarize -> main_summarize ()
 
 ;; main ()
