@@ -10,6 +10,7 @@ let get_command_output c =
   let ic = open_in tmp in
   let res = input_line ic in
   close_in ic;
+  begin try Sys.remove tmp with _ -> () end;
   res
 
 (** Note: this is not exactly what OPAM does for exotic Unix variants *)
