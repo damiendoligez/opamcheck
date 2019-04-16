@@ -231,7 +231,7 @@ let play_solution ~sandbox rl =
            (sprintf "opam init --comp=%s --no-setup default %s" compvers repo)
        | `Opam2 ->
          run0 ~env:opam_env
-           (sprintf "opam init --compiler=%s --no-setup -y default %s" compvers repo)
+           (sprintf "opam init --disable-sandboxing --compiler=%s --no-setup -y default %s" compvers repo)
      end;
      run0 (sprintf "git -C %s init" gitdir);
      run0 (sprintf "echo '!*' >%s" (Filename.concat gitdir ".gitignore"));
