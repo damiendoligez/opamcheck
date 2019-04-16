@@ -91,10 +91,12 @@ let rec ast_of_formula
 let ast_of_constrain (v: value): Ast.constrain option =
   match v with
   | Prefix_relop (_, op, String (_, s)) ->
-    Some (op, s)
+    Some (op, Ast.V s)
+  | Prefix_relop (_, op, Ident (_, "version")) ->
+    Some (op, Ast.Same_version)
   | Relop (_, op, _id, String (_, s)) ->
     (* Note: an identifier [id] gets ignored in constraints *)
-    Some (op, s)
+    Some (op, Ast.V s)
   | Ident _ ->
     None
   | v -> raise (Ill_formed_file (pos_of_value v))
@@ -114,7 +116,7 @@ let ast_of_depend (v: value): Ast.package Ast.formula =
 let ast_of_filter (v: value): Ast.filter =
   match v with
   | Relop (_, op, id1, id2) ->
-    (str_of_value id1, Some (op, str_of_value id2))
+    (str_of_value id1, Some (op, Ast.V (str_of_value id2)))
   | Ident (_, id) | String (_, id) ->
     (id, None)
   | Bool (_, b) ->

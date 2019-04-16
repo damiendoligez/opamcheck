@@ -28,7 +28,11 @@ and filter = string * constrain option
 
 and comp = [ `Eq | `Lt | `Gt | `Leq | `Geq | `Neq ]
 
-and constrain = comp * string
+and constrain = comp * version
+
+and version =
+  | V of string
+  | Same_version
 
 type url =
   | Mirrors of string list
@@ -55,7 +59,11 @@ let show_comp = function
   | `Geq -> printf ">="
   | `Neq -> printf "!="
 
-let show_constrain (c, s) = show_comp c; printf " %s" s
+let show_constrain (c, s) =
+  show_comp c;
+  match s with
+  | V s -> printf " \"%s\"" s
+  | Same_version -> printf "version"
 
 let rec show_formula atom f =
   match f with

@@ -26,7 +26,11 @@ and filter = string * constrain option
 
 and comp = [ `Eq | `Lt | `Gt | `Leq | `Geq | `Neq ]
 
-and constrain = comp * string
+and constrain = comp * version
+
+and version =
+  | V of string
+  | Same_version
 
 type url =
   | Mirrors of string list

@@ -315,11 +315,31 @@ let main_run sandbox =
   Log.log "reading packages files\n";
   let repo = Filename.concat sandbox "opam-repository" in
   let asts = fold_opam_files (fun acc dir name ->
-    if List.mem (fst (Version.split_name_version dir))
-                ["ocaml-base-compiler"; "ocaml-variants"] then
-      acc
-    else
-      parse_file dir name :: acc
+    let (packname, _) = Version.split_name_version dir in
+    if packname = "ocaml-system" then
+      let (dir, _, digest) = parse_file dir name in
+      let ast = Ast.[ Available (Not (List [])) ] in
+      (dir, ast, digest) :: acc
+    else if List.mem packname ["ocaml-base-compiler"; "ocaml-variants"] then
+      let (dir, _, digest) = parse_file dir name in
+      let ast =
+        Ast.[ Depends (Atom ("ocaml", Some (Atom (`Eq, Same_version)))) ]
+      in
+      (dir, ast, digest) :: acc
+    else if packname = "ocaml" then begin
+      (* remove dependencies, we take "ocaml" as the atomic package *)
+      let (dir, descr, digest) = parse_file dir name in
+      let f entry =
+        match entry with
+        | Ast.Depends _ | Ast.Depopts _ -> false
+        | _ -> true
+      in
+      let pack = (dir, List.filter f descr, digest) in
+      pack :: acc
+    end else begin
+      let pack = parse_file dir name in
+      pack :: acc
+    end
   ) [] repo in
   let u = Package.make !compilers asts in
 

@@ -70,25 +70,33 @@ let rec eval atom env form =
   | Ast.Not f -> not (eval atom env f)
   | Ast.Atom a -> atom env a
 
-let eval_constraint name env (op, vers) =
+let compare_version ctxv v vers =
+  match vers with
+  | Ast.V s -> Version.compare v s
+  | Ast.Same_version -> Version.compare v ctxv
+
+let eval_op op compare_result =
+  match op with
+  | `Eq -> compare_result = 0
+  | `Lt -> compare_result < 0
+  | `Gt -> compare_result > 0
+  | `Leq -> compare_result <= 0
+  | `Geq -> compare_result >= 0
+  | `Neq -> compare_result <> 0
+
+let eval_constraint ctxv name env (op, vers) =
   let check (n, v) =
     n = name
-    && match op with
-       | `Eq -> v = vers
-       | `Lt -> Version.compare v vers < 0
-       | `Gt -> Version.compare v vers > 0
-       | `Leq -> Version.compare v vers <= 0
-       | `Geq -> Version.compare v vers >= 0
-       | `Neq -> v <> vers
+    && eval_op op (compare_version ctxv v vers)
   in
   List.exists check env
 
-let eval_package env (name, fo) =
+let eval_package ctxv env (name, fo) =
   match fo with
   | None -> List.exists (fun (n, _) -> n = name) env
-  | Some f -> eval (eval_constraint name) env f
+  | Some f -> eval (eval_constraint ctxv name) env f
 
-let eval_deps env f = eval eval_package env f
+let eval_deps ctxv env f = eval (eval_package ctxv) env f
 
 let compat u (name, vers) sol remain1 remain2 =
   let f p = p.version = vers in
@@ -97,7 +105,7 @@ let compat u (name, vers) sol remain1 remain2 =
     not (List.exists (fun (n, _) -> n = name) remain1)
     && not (List.exists (fun (n, _) -> n = name) remain2)
   in
-  eval_deps sol p.Package.deps && List.for_all check_opt p.Package.dep_opt
+  eval_deps vers sol p.Package.deps && List.for_all check_opt p.Package.dep_opt
 
 let schedule u prev sol target =
   let todo = SPS.diff (SPS.of_list sol) (SPS.of_list prev) in
