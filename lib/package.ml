@@ -199,7 +199,7 @@ let make ocaml_versions asts =
   let u = { sat; packs = []; pack_map = SM.empty; lits; revdeps = SM.empty } in
   let conflict name v1 v2 =
     if v1 = v2 then begin
-      Log.warn "self-conflict suppressed: %s.%s" name v1;
+      Log.warn "self-conflict suppressed: %s.%s\n" name v1;
     end else begin
       let l1 = find_lit u name v1 in
       let l2 = find_lit u name v2 in
