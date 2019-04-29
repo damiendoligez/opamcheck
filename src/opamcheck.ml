@@ -8,7 +8,7 @@ open Printf
 
 open Util
 
-let retries = ref 5
+let tries = ref 2
 let compilers = ref []
 let sandbox = ref None
 let show_all = ref false
@@ -121,7 +121,7 @@ let record_failed u p comp l =
      begin match get_status p name vers comp with
      | OK -> ()
      | Try (f, d) ->
-        if f >= !retries then begin
+        if f >= !tries then begin
           forbid_solution u [("ocaml", comp); (name, vers)];
           set_status p name vers comp Fail
         end else begin
@@ -208,7 +208,7 @@ let test_comp_pack ~sandbox u progress comp pack =
   let name = pack.Package.name in
   let vers = pack.Package.version in
   let rec loop forbid prev attempt =
-    if attempt >= !retries then () else begin
+    if attempt >= !tries then () else begin
       let st = get_status progress name vers comp in
       if st <> OK then begin
         Status.(
@@ -261,8 +261,8 @@ let spec = [
   "-all", Arg.Set show_all, " Show all results (summarize)";
   "-head", Arg.Set_string header,
         "<s>  Insert <s> at top of body in index file (summarize)";
-  "-retries", Arg.Set_int retries,
-           "<n>  Retry failed packages <n> times (default 5) (run)";
+  "-retries", Arg.Set_int tries,
+           "<n>  Try packages up to <n> times (default 2) (run)";
   "-sandbox", Arg.String (fun s -> sandbox := Some s),
     "<path>  Set the location of the sandbox directory to <path> (mandatory; \
      alternatively can be specified by setting the OPCSANDBOX \
