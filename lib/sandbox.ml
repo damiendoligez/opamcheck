@@ -31,6 +31,12 @@ let run0 ?(retry=0) ?(env="") cmd =
   in
   loop retry
 
+let rec run_try_list ?(env="") l =
+  match l with
+  | [] -> assert false
+  | [cmd] -> run0 ~env cmd
+  | cmd :: ll -> if run ~env cmd <> 0 then run_try_list ~env ll
+
 type result = OK | Failed of (string * string) list
 
 (** encoding must be done in the right order: "..x" before ".x" *)
@@ -230,8 +236,15 @@ let play_solution ~sandbox rl =
          run0 ~env:opam_env
            (sprintf "opam init --comp=%s --no-setup default %s" compvers repo)
        | `Opam2 ->
-         run0 ~env:opam_env
-           (sprintf "opam init --disable-sandboxing --compiler=%s --no-setup -y default %s" compvers repo)
+         let mkcommand var =
+           sprintf "opam init --disable-sandboxing --compiler=%s.%s \
+                    --no-setup -y default %s" var compvers repo
+         in
+         let commands = [
+           mkcommand "ocaml-base-compiler";
+           mkcommand "ocaml-variants";
+         ] in
+         run_try_list ~env:opam_env commands
      end;
      run0 (sprintf "git -C %s init" gitdir);
      run0 (sprintf "echo '!*' >%s" (Filename.concat gitdir ".gitignore"));
