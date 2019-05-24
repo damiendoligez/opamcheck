@@ -236,9 +236,11 @@ let play_solution ~sandbox rl =
          run0 ~env:opam_env
            (sprintf "opam init --comp=%s --no-setup default %s" compvers repo)
        | `Opam2 ->
+         run0 ~env:opam_env
+           (sprintf "opam init --disable-sandboxing --bare --no-setup -y \
+                     default %s" repo);
          let mkcommand var =
-           sprintf "opam init --disable-sandboxing --compiler=%s.%s \
-                    --no-setup -y default %s" var compvers repo
+           sprintf "opam switch create %s %s.%s" compvers var compvers
          in
          let commands = [
            mkcommand "ocaml-base-compiler";
